@@ -1,0 +1,15 @@
+> Generic single-database configuration.
+
+## How to auto generate database migrations
+
+```bash
+$ alembic revision --autogenerate -m <message>
+```
+
+## How to migrate database
+
+```bash
+$ alembic update <revision_id>
+```
+
+> `revision_id` looks like this: `56a1d53fa757`. If you want to migrate latest revision, please use `$ alembic update head`

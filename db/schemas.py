@@ -1,35 +1,29 @@
 from pydantic import BaseModel
+from typing import List, Optional
 
 
-class ItemBase(BaseModel):
-    title: str
-    description: str | None = None
-
-
-class ItemCreate(ItemBase):
-    pass
-
-
-class Item(ItemBase):
-    id: int
-    owner_id: int
+class TagSchema(BaseModel):
+    id: Optional[int]
+    name: str
+    articles: Optional[List['ImageSchema']] = []
 
     class Config:
         orm_mode = True
 
 
-class UserBase(BaseModel):
-    email: str
-
-
-class UserCreate(UserBase):
-    password: str
-
-
-class User(UserBase):
-    id: int
-    is_active: bool
-    items: list[Item] = []
+class ImageSchema(BaseModel):
+    id: Optional[int]
+    image_path: str
+    source_url: str
+    tags: Optional[List[TagSchema]] = []
 
     class Config:
         orm_mode = True
+
+
+class AuthorSchema(BaseModel):
+    id: Optional[int]
+    name: str
+    platform: str
+    homepage: str
+    image: Optional[List['ImageSchema']] = []
