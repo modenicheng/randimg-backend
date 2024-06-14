@@ -18,6 +18,9 @@ class ImageSchema(BaseModel):
     tags: Optional[List[TagSchema]] = []
     author: Optional['AuthorSchema']
     colours: Optional[Dict]
+    width: Optional[int]
+    height: Optional[int]
+    aspect_ratio: Optional[float]
 
     class Config:
         orm_mode = True

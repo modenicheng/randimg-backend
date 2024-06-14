@@ -17,6 +17,7 @@ class Image(Base):
     __tablename__ = "images"
 
     id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
     image_path = Column(String)
     source_url = Column(String, nullable=True)
     tags = relationship("Tag",
@@ -25,7 +26,8 @@ class Image(Base):
     author = relationship("Author",
                           secondary=image_author_association,
                           back_populates="images")
-    resolution_ratio = Column(String) # "width:height"
+    width = Column(Integer)
+    height = Column(Integer)
     aspect_ratio = Column(Float(4)) # 
     colours = Column(JSON) # {"colour_primary": int, "colour_series": list[str]}
 
@@ -51,8 +53,11 @@ class Author(Base):
     __tablename__ = "authors"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    platform = Column(String)
+    platform = Column(String, nullable=True)
     homepage = Column(String, index=True)
     images = relationship("Image",
                           secondary=image_author_association,
                           back_populates="author")
+    
+    def __repr__(self):
+        return f"<Author(id={self.id}, name={self.name}, homepage={self.homepage})>"
