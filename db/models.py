@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, Table
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, Table, Float
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -25,6 +25,9 @@ class Image(Base):
     author = relationship("Author",
                           secondary=image_author_association,
                           back_populates="images")
+    resolution_ratio = Column(String) # "width:height"
+    aspect_ratio = Column(Float(4)) # 
+    colours = Column(JSON) # {"colour_primary": int, "colour_series": list[str]}
 
     def __repr__(self):
         return f"<Image(id={self.id}, image_path={self.image_path}, source_url={self.source_url})>"

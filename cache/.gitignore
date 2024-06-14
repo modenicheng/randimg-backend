@@ -1,0 +1,11 @@
+cache.db
+cache.db-shm
+cache.db-wal
+cache.db.bak
+cache.db.bak-shm
+cache.db.bak-wal
+cache.db.bak.bak
+cache.db.bak.bak-shm
+cache.db.bak.bak-wal
+cache.db.bak.bak.bak
+cache.db.bak.bak.bak-shm
