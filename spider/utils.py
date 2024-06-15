@@ -2,12 +2,16 @@ from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
-
+from typing import Literal
 from time import time
 
-def get_dominant_colors(image_path, num_colors=10, scale=1):
+from icecream import ic
+
+
+def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=1):
     # 打开图像并转换为RGB模式
-    image = Image.open(image_path).convert('RGB')
+    if type(image) == str:
+        image = Image.open(image).convert('RGB')
 
     image = image.resize((int(image.width * scale), int(image.height * scale)))
     # 将图像转换为numpy数组
@@ -28,20 +32,16 @@ def get_brightness(color):
     return 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
 
 
-def extract_theme_colors(image_path, num_colors=10, scale=1):
-    colors = get_dominant_colors(image_path, num_colors, scale=scale)
+def extract_theme_colors(image: Image.Image | str, num_colors=10, scale=1):
+    colors = get_dominant_colors(image, scale=scale)
 
     # 根据亮度排序颜色
-    sorted_colors = sorted(colors, key=get_brightness)
+    sorted_colors = sorted(colors.tolist(), key=get_brightness)
 
-    # 提取暗色主题色（亮度最低的颜色）
-    dark_theme_color = sorted_colors[0]
-    # 提取亮色主题色（亮度最高的颜色）
-    light_theme_color = sorted_colors[-1]
     # 提取主题色（中间亮度的颜色）
     main_theme_color = sorted_colors[len(sorted_colors) // 2]
 
-    return sorted_colors, main_theme_color, light_theme_color, dark_theme_color
+    return list([list(i) for i in sorted_colors]), list(main_theme_color)
 
 
 def plot_colors(colors):
@@ -55,8 +55,28 @@ def plot_colors(colors):
 # 示例使用
 # image_path = './images/image.jpg'  # 替换为你的图像路径
 
-# colors, main_color, light_color, dark_color = extract_theme_colors(
+# colors, main_color = extract_theme_colors(
 #     image_path, num_colors=10, scale=0.5)
 
+# main_color = list(main_color)
+
 # print(f"提取的颜色: {colors}")
-# print(f"主色调: {main_color}")
+# print(f"主色调: {main_color}, {type(main_color)}")
+
+# Image HASH
+
+import imagehash
+
+
+def phash(img_path: str):
+    highfreq_factor = 1
+    hash_size = 12
+
+    result = imagehash.phash(Image.open(img_path),
+                             hash_size=hash_size,
+                             highfreq_factor=highfreq_factor)
+    return result
+
+
+def hash_similarity(hash1: imagehash.ImageHash, hash2: imagehash.ImageHash):
+    return 1 - (hash1 - hash2) / len(hash1.hash)**2

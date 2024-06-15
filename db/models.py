@@ -20,6 +20,7 @@ class Image(Base):
     title = Column(String)
     image_path = Column(String)
     source_url = Column(String, nullable=True)
+    source_id = Column(Integer, nullable=True)
     tags = relationship("Tag",
                         secondary=image_tag_association,
                         back_populates="images")
@@ -28,8 +29,8 @@ class Image(Base):
                           back_populates="images")
     width = Column(Integer)
     height = Column(Integer)
-    aspect_ratio = Column(Float(4)) # 
-    colours = Column(JSON) # {"colour_primary": int, "colour_series": list[str]}
+    aspect_ratio = Column(Float(4)) # w / h
+    colors = Column(JSON) # {"color_primary": int, "color_series": list[str]}
 
     def __repr__(self):
         return f"<Image(id={self.id}, image_path={self.image_path}, source_url={self.source_url})>"
@@ -40,7 +41,7 @@ class Tag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    description = Column(String, nullable=True)
+    num = Column(Integer) # How many images have this tag
     images = relationship("Image",
                           secondary=image_tag_association,
                           back_populates="tags")
@@ -52,9 +53,9 @@ class Tag(Base):
 class Author(Base):
     __tablename__ = "authors"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
+    name = Column(String)
     platform = Column(String, nullable=True)
-    homepage = Column(String, index=True)
+    homepage = Column(String, nullable=True)
     images = relationship("Image",
                           secondary=image_author_association,
                           back_populates="author")

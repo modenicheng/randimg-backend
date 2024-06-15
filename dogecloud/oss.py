@@ -4,6 +4,7 @@ import boto3.session
 import requests
 import json
 import urllib
+from io import BytesIO
 
 import boto3
 
@@ -11,7 +12,7 @@ from icecream import ic
 from cache import cache
 from . import keys
 
-
+from PIL import Image
 def dogecloud_api(api_path, data={}, json_mode=False):
     """
     调用多吉云API
@@ -103,7 +104,7 @@ class OSS:
             aws_session_token=cache.get('sessionToken'),
             endpoint_url='https://' + self.bucket + '.' + cache.get('s3Endpoint').replace('https://', ''))
 
-    def upload(self, image_path: str, image_uri: str):
+    def upload_image_file(self, image_path: str, image_uri: str):
         """
         上传图片到 OSS
         """
@@ -111,3 +112,21 @@ class OSS:
         key = image_uri
         self.s3.upload_file(image_path, bucket, key)
         return image_uri
+    
+    def upload_image_blob(self, image_blob: Image, image_uri:str):
+        image_file = self.image_blob_to_file_obj(image_blob)
+        bucket = self.bucket
+        key = image_uri
+        self.s3.upload_fileobj(image_file, bucket, key)
+        return image_uri
+    
+    def image_blob_to_file_obj(self, image_blob: Image):
+        img_byte_arr = BytesIO()
+
+        # 将图像保存到 BytesIO 对象中，格式为 JPEG
+        image_blob.save(img_byte_arr, format='JPEG')
+
+        # 使用 BytesIO 对象的内容创建一个 File 对象
+        img_byte_arr.seek(0)  # 将光标移到文件的开头
+        img_file = img_byte_arr
+        return img_file
