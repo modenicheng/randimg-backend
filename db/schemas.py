@@ -9,7 +9,7 @@ class TagSchema(BaseModel):
     num: Optional[int]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ImageSchema(BaseModel):
@@ -25,7 +25,7 @@ class ImageSchema(BaseModel):
     aspect_ratio: Optional[float]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class AuthorSchema(BaseModel):
@@ -36,4 +36,4 @@ class AuthorSchema(BaseModel):
     image: Optional[List['ImageSchema']] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True

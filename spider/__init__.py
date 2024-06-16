@@ -47,6 +47,7 @@ class RankingCrawler:
         ])
 
         self.upload_retry = 0
+        self.finished = 0
 
     def collect_ranking_list(self):
         url_list = []
@@ -64,30 +65,32 @@ class RankingCrawler:
 
         data = []
         for url in url_list:
+            headers = {
+                "Referer": re.search("(.*)&p", url).group(1),
+                **configs.HEADERS
+            }
             res = requests.api.get(url,
-                                   headers={
-                                       "Referer":
-                                       re.search("(.*)&p", url).group(1),
-                                   }.update(configs.HEADERS),
+                                   headers=headers,
                                    proxies=configs.PROXIES)
+            if res.status_code == 200:
+                contents = res.json()['contents']
+                data += contents  # add each batch of data into a list
 
-            contents = res.json()['contents']
-            data += contents  # add each batch of data into a list
-        for entry in data:
-            key = entry['illust_id']
-            value = entry
-            cache.set(key, value)
         self.data = data
         return data
 
     def crawl(self):
+        self.collect_ranking_list()
         for entry in self.data:
-            self.task_queue.put(entry)
-
+            if entry['user_id'] in configs.ARTISTS_BLACKLIST:
+                pass
+            elif entry['illust_id'] in crud.get_illust_ids():
+                print(f'skip {entry["illust_id"]}')
+            else:
+                self.task_queue.put(entry)
+            
         processes: list[multiprocessing.Process] = []
-        bar_format = '{desc}\n{percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]'
 
-        # self.pbar = tqdm.tqdm(total=len(self.data), bar_format=bar_format)
         for _ in range(configs.IMAGE_DOWNLOAD_THREADS):
             p = multiprocessing.Process(target=self.worker)
             processes.append(p)
@@ -107,50 +110,51 @@ class RankingCrawler:
 
     def worker(self):
         while not self.task_queue.empty():
-            entry = self.task_queue.get()
-            ic(entry)
-            illust_id = int(entry['illust_id'])
-            image_list = Downloader.pixiv_artwork_page_image_list(illust_id)
+            try:
+                entry = self.task_queue.get()
+                illust_id = int(entry['illust_id'])
+                image_list = Downloader.pixiv_artwork_page_image_list(illust_id)
 
-            for image in image_list:
-                image_url = image['image_url']
-                image_blob = Downloader.pixiv_image_blob(image_url)
-                ic(image_blob)
-                if image_blob == None:
-                    self.task_queue.put(entry)
-                    return
-                image_path = re.search(r'/([0-9]*_p[0-9]\..*)',
-                                       image['image_url']).group(1)
-                t = threading.Thread(target=self.upload_image,
-                                     args=(image_blob, image_path))
+                for image in image_list:
+                    image_url = image['image_url']
+                    image_blob = Downloader.pixiv_image_blob(image_url)
+                    image_path = re.search(r'/([0-9]*_p[0-9]\..*)',
+                                    image['image_url']).group(1)
 
-                sorted_colors, main_color = utils.extract_theme_colors(
-                    image_blob, scale=0.7)
+                    sorted_colors, main_color = utils.extract_theme_colors(
+                        image_blob, scale=0.7)
+                    
+                    t = threading.Thread(target=self.upload_image, args=(image_blob, image_path))
+                    t.start()
 
-                db_data = {
-                    'title': entry['title'],
-                    'image_path': image_path,
-                    'source_id': entry['illust_id'],
-                    'source_url':
-                    f"https://www.pixiv.net/artworks/{entry['illust_id']}",  # this is the link to the original page of the Pixiv site
-                    'width': image['width'],
-                    'height': image['height'],
-                    'aspect_ratio': image['aspect_ratio'],
-                    'tags': entry['tags'],
-                    'author': {
-                        'platform': 'pixiv',
-                        'platform_id': entry['user_id'],
-                        'homepage':
-                        f'https://www.pixiv.net/users/{entry["user_id"]}',
-                        'name': entry['user_name']
-                    },
-                    'color': {
-                        'color_primary': main_color,
-                        'color_series': sorted_colors
+                    db_data = {
+                        'title': entry['title'],
+                        'image_path': image_path,
+                        'source_id': entry['illust_id'],
+                        'source_url':
+                        f"https://www.pixiv.net/artworks/{entry['illust_id']}",  # this is the link to the original page of the Pixiv site
+                        'width': image['width'],
+                        'height': image['height'],
+                        'aspect_ratio': image['aspect_ratio'],
+                        'tags': entry['tags'],
+                        'author': {
+                            'platform': 'pixiv',
+                            'platform_id': entry['user_id'],
+                            'homepage':
+                            f'https://www.pixiv.net/users/{entry["user_id"]}',
+                            'name': entry['user_name']
+                        },
+                        'color': {
+                            'color_primary': main_color,
+                            'color_series': sorted_colors
+                        }
                     }
-                }
-                crud.create_image(db_data)
-        return
+                    crud.create_image(db_data)
+                print(f'Image info of {image_path} stored in db')
+
+            except:
+                pass
+                
 
     def upload_image(self, image_blob, image_uri: str):
         if self.upload_retry >= configs.MAX_UPLOAD_RETRY:
@@ -158,6 +162,7 @@ class RankingCrawler:
         storage = oss.OSS()
         try:
             storage.upload_image_blob(image_blob, image_uri)
+            print(f'Image {image_uri} uploaded')
 
         except:
             self.upload_retry += 1

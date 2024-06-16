@@ -13,7 +13,6 @@ import json
 fake = Faker()
 session = database.SessionLocal()
 
-
 # def generate_random_data():
 #     entry = {
 #         'title':
@@ -69,7 +68,8 @@ def create_image(data: dict):
         # Create tags if tags are not exist
         tag_objs = []
         for tag in data['tags']:
-            tag_obj = db.query(models.Tag).filter(models.Tag.name == tag).first()
+            tag_obj = db.query(
+                models.Tag).filter(models.Tag.name == tag).first()
             if not tag_obj:
                 new_tag = models.Tag(name=tag, num=1)
                 db.add(new_tag)
@@ -88,8 +88,8 @@ def create_image(data: dict):
         if not author_obj:
             author_data = data['author']
             new_author = models.Author(name=author_data['name'],
-                                    platform=author_data['platform'],
-                                    homepage=author_data['homepage'])
+                                       platform=author_data['platform'],
+                                       homepage=author_data['homepage'])
             db.add(new_author)
             db.commit()
             db.refresh(new_author)
@@ -99,17 +99,28 @@ def create_image(data: dict):
         db.commit()
         print(data['color'], type(data['color']))
         image = models.Image(title=data['title'],
-                            image_path=data['image_path'],
-                            source_id=data['source_id'],
-                            source_url=data['source_url'],
-                            width=data['width'],
-                            height=data['height'],
-                            aspect_ratio=data['aspect_ratio'],
-                            colors=json.dumps(data['color']))
+                             image_path=data['image_path'],
+                             source_id=data['source_id'],
+                             source_url=data['source_url'],
+                             width=data['width'],
+                             height=data['height'],
+                             aspect_ratio=data['aspect_ratio'],
+                             colors=json.dumps(data['color']))
         image.author.append(author)
         image.tags.extend(tag_objs)
         db.add(image)
         db.commit()
         db.refresh(image)
+    finally:
+        db.close()
+
+
+def get_illust_ids():
+    try:
+        db = database.SessionLocal()
+        q = db.query(models.Image).all().copy()
+        return [i.source_id for i in q]
+    except Exception as e:
+        print(e)
     finally:
         db.close()

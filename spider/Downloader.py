@@ -12,12 +12,17 @@ from io import BytesIO
 
 import os
 
+from time import sleep
 
-def pixiv_image_blob(url: str, save_path: str = './tmp_images'):
+
+def pixiv_image_blob(url: str, save_path: str = './tmp_images', r=0):
     image_name = url[url.rfind("/") + 1:]
     result = re.search(r"/(\d+)_", url)
     illust_id = result.group(1)
-    headers = {"Referer": f"https://www.pixiv.net/artworks/{illust_id}", **configs.HEADERS}
+    headers = {
+        "Referer": f"https://www.pixiv.net/artworks/{illust_id}",
+        **configs.HEADERS
+    }
     try:
         res = requests.get(url, headers=headers, stream=True)
         assert res.status_code == 200
@@ -25,18 +30,23 @@ def pixiv_image_blob(url: str, save_path: str = './tmp_images'):
         return image
     except Exception as e:
         ic(e)
-        return None
+        sleep(5)
+        return pixiv_image_blob(url, r=r + 1)
 
 
 def pixiv_artwork_page_image_list(illust_id: int):
     url = f"https://www.pixiv.net/ajax/illust/{illust_id}/pages?lang=zh"
-    res = requests.get(url,
-                       headers=configs.HEADERS.update({
-                           "Referer":
-                           f"https://www.pixiv.net/artworks/{illust_id}",
-                           "x-user-id":
-                           str(configs.USER_ID),
-                       }))
+    try:
+        res = requests.get(url,
+                           headers=configs.HEADERS.update({
+                               "Referer":
+                               f"https://www.pixiv.net/artworks/{illust_id}",
+                               "x-user-id":
+                               str(configs.USER_ID),
+                           }))
+    except:
+        sleep(5)
+        return pixiv_artwork_page_image_list(illust_id)
     if res.status_code != 200:
         ic(res.status_code, res.reason)
 

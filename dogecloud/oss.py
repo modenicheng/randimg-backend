@@ -13,6 +13,8 @@ from cache import cache
 from . import keys
 
 from PIL import Image
+
+
 def dogecloud_api(api_path, data={}, json_mode=False):
     """
     调用多吉云API
@@ -64,7 +66,7 @@ def get_tmp_token():
     获取临时密钥
     """
 
-    if cache.get('accessKeyId') and not DEBUG:
+    if not cache.get('accessKeyId') and not DEBUG:
         return
 
     res = dogecloud_api('/auth/tmp_token.json', {
@@ -93,7 +95,7 @@ def get_tmp_token():
 class OSS:
 
     def __init__(self):
-        
+
         get_tmp_token()
         self.bucket = cache.get('s3Bucket')
 
@@ -102,24 +104,26 @@ class OSS:
             aws_access_key_id=cache.get('accessKeyId'),
             aws_secret_access_key=cache.get('secretAccessKey'),
             aws_session_token=cache.get('sessionToken'),
-            endpoint_url='https://' + self.bucket + '.' + cache.get('s3Endpoint').replace('https://', ''))
+            endpoint_url='https://' + self.bucket + '.' +
+            cache.get('s3Endpoint').replace('https://', ''))
 
     def upload_image_file(self, image_path: str, image_uri: str):
         """
         上传图片到 OSS
         """
+        get_tmp_token()
         bucket = self.bucket
         key = image_uri
         self.s3.upload_file(image_path, bucket, key)
         return image_uri
-    
-    def upload_image_blob(self, image_blob: Image, image_uri:str):
+
+    def upload_image_blob(self, image_blob: Image, image_uri: str):
         image_file = self.image_blob_to_file_obj(image_blob)
         bucket = self.bucket
         key = image_uri
         self.s3.upload_fileobj(image_file, bucket, key)
         return image_uri
-    
+
     def image_blob_to_file_obj(self, image_blob: Image):
         img_byte_arr = BytesIO()
 
@@ -130,3 +134,30 @@ class OSS:
         img_byte_arr.seek(0)  # 将光标移到文件的开头
         img_file = img_byte_arr
         return img_file
+
+    def get_file_list(self, continue_file='', prefix='', limit=200):
+        data = []
+        params = {
+            'prefix': 's-sh-5182-randimg-1258813047/' + prefix,
+        }
+        url = f"/oss/file/list.json?bucket=randimg&prefix={params['prefix']}&continue={continue_file}&limit={limit}"
+        sign_str = url + ("\n" + "")
+        
+        signedData = hmac.new(keys.SECRET_KEY.encode(), sign_str.encode('utf-8'), sha1)
+        token = signedData.digest().hex()
+        headers = {
+            "Host": 'api.dogecloud.com',
+            'Authorization': f'TOKEN {keys.ACCESS_KEY}:{token}'
+        }
+        res = requests.get("https://api.dogecloud.com" + url,
+                           headers=headers
+                           )
+        
+        if res.status_code == 200:
+            json_data = res.json()
+            if json_data['code'] == 200:
+                con = json_data['data'].get('continue')
+                data = json_data['data']['files']
+            if con != None:
+                data += self.get_file_list(con, prefix, limit)
+            return data
