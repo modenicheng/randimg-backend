@@ -118,7 +118,7 @@ class RankingCrawler:
                 for image in image_list:
                     image_url = image['image_url']
                     image_blob = Downloader.pixiv_image_blob(image_url)
-                    image_path = re.search(r'/([0-9]*_p[0-9]\..*)',
+                    image_path = re.search(r'/([0-9]*_p[0-9]*\..*)',
                                     image['image_url']).group(1)
 
                     sorted_colors, main_color = utils.extract_theme_colors(
@@ -168,3 +168,77 @@ class RankingCrawler:
             self.upload_retry += 1
             sleep(5)
             self.upload_image(image_blob, image_uri)
+
+class RankingCrawler_Rebuild:
+    
+    def __init__(self,
+                 mode: Literal["daily", "weekly", "monthly", "male", "female",
+                               "daily_ai", "daily_r18", "weekly_r18",
+                               "male_r18", "female_r18", "daily_r18_ai"],
+                 content_mode: Literal['all', 'illust', "manga", "ugoira"],
+                 start_date: datetime.date, ranges: int, pages: int):
+
+        self.mode = mode
+        self.content_mode = content_mode
+        self.start_date = start_date
+        self.range = ranges
+        self.pages = pages
+        self.date = start_date
+
+        self.pbar: tqdm.tqdm | None = None
+
+        self.ranking_list_url = "https://www.pixiv.net/ranking.php?" + "&".join([
+            f"mode={self.mode}",
+            f"content={self.content_mode}",
+            "date={}",
+            "p={}",
+            "format=json",
+        ])
+        
+    def collect_ranking_list(self):
+        url_list = []
+        date = self.date
+        page_list_queue = queue.Queue()
+        while date < datetime.date.today():
+            for i in range(self.pages):
+                ranking_list_url = self.ranking_list_url.format(
+                    date.strftime("%Y%m%d"), i + 1)
+                url_list.append(ranking_list_url)
+            date += datetime.timedelta(1)
+        self.url_list = url_list
+        
+        data = []
+        for url in url_list:
+            headers = {
+                "Referer": re.search("(.*)&p", url).group(1),
+                **configs.HEADERS
+            }
+            res = requests.api.get(url,
+                                   headers=headers,
+                                   proxies=configs.PROXIES)
+            if res.status_code == 200:
+                contents = res.json()['contents']
+                data += contents  # add each batch of data into a list
+
+        self.data = data
+        return data
+    
+    def get_image_list(self, page_list_queue) -> list[dict]:
+        image_list_queue = queue.Queue()
+            
+        for i in range(configs.GET_PAGE_THREADS):
+            t = threading.Thread(target=self.get_illust_detail, args=(page_list_queue, image_list_queue), name=f'THREAD illust_detail {i}')
+            t.start()
+        image_list_queue.join()
+    
+    def get_illust_detail(self, page_list_queue: queue.Queue, image_list_queue: queue.Queue, ):
+        while not page_list_queue.empty():
+            illust_page_id = int(page_list_queue.get()['illust_id'])
+            print(f'{threading.current_thread()} | Getting image list of illust_id {illust_page_id}')
+            image_list = Downloader.pixiv_artwork_page_image_list(illust_page_id)
+            for image in image_list:
+                image_list_queue.put(image)
+        page_list_queue.task_done()
+        return image_list_queue
+        
+    

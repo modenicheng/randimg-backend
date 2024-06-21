@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, Table, Float
 from sqlalchemy.orm import relationship
+from pydantic import BaseModel
 
 from .database import Base
 
@@ -23,10 +24,12 @@ class Image(Base):
     source_id = Column(Integer, nullable=True)
     tags = relationship("Tag",
                         secondary=image_tag_association,
-                        back_populates="images")
+                        back_populates="images",
+                        lazy=False)
     author = relationship("Author",
                           secondary=image_author_association,
-                          back_populates="images")
+                          back_populates="images",
+                          lazy=False)
     width = Column(Integer)
     height = Column(Integer)
     aspect_ratio = Column(Float(4)) # w / h
@@ -65,3 +68,11 @@ class Author(Base):
     
     def __repr__(self):
         return f"<Author(id={self.id}, name={self.name}, homepage={self.homepage})>"
+
+class Admin(Base):
+    __tablename__ = "admins"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    is_superuser = Column(Boolean, default=False)

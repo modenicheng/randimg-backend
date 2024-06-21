@@ -1,65 +1,34 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, database
 # import models, schemas, database
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from icecream import ic
+from configs import CDN_BASE_URL
 
 import random
 from faker import Faker
 import json
 
+from contextlib import contextmanager
+
 fake = Faker()
 session = database.SessionLocal()
 
-# def generate_random_data():
-#     entry = {
-#         'title':
-#         fake.sentence(),
-#         'illust_id':
-#         random.randint(100000, 999999),
-#         'user_id':
-#         random.randint(1000, 9999),
-#         'user_name':
-#         fake.name(),
-#         'tags':
-#         random.sample(['nature', 'technology', 'art', 'abstract', 'portrait'],
-#                       random.randint(1, 5)),
-#     }
 
-#     image = {
-#         'width': random.randint(300, 1920),
-#         'height': random.randint(300, 1080),
-#         'aspect_ratio': round(random.uniform(0.5, 2.0), 2)
-#     }
+@contextmanager
+def get_db():
+    db = database.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-#     main_color = [random.randint(0, 255) for _ in range(3)]
-#     sorted_colors = [[random.randint(0, 255) for _ in range(3)]
-#                      for _ in range(random.randint(1, 5))]
 
-#     db_data = {
-#         'title': entry['title'],
-#         'image_path': f"/path/to/image_{entry['illust_id']}.jpg",
-#         'source_id': entry['illust_id'],
-#         'source_url': f"https://www.pixiv.net/artworks/{entry['illust_id']}",
-#         'width': image['width'],
-#         'height': image['height'],
-#         'aspect_ratio': image['aspect_ratio'],
-#         'tags': entry['tags'],
-#         'author': {
-#             'platform': 'pixiv',
-#             'platform_id': entry['user_id'],
-#             'homepage': f'https://www.pixiv.net/users/{entry["user_id"]}',
-#             'name': entry['user_name']
-#         },
-#         'color': {
-#             'color_primary': main_color,
-#             'color_series': [list(i) for i in sorted_colors]
-#         }
-#     }
-
-#     return db_data
+def create_admin(db: Session, data: schemas.AdminSchema):
+    db.add(models.Admin(**data.model_dump()))
+    db.commit()
 
 
 def create_image(data: dict):
@@ -124,3 +93,50 @@ def get_illust_ids():
         print(e)
     finally:
         db.close()
+
+
+def get_image_by_id(image_id: int):
+    I = models.Image
+    with get_db() as db:
+        img = db.query(models.Image).\
+            join(models.image_author_association).\
+            join(models.Author, models.Author.id == models.image_author_association.c.author_id).\
+            join(models.image_tag_association).\
+            join(models.Tag, models.Tag.id == models.image_tag_association.c.tag_id).\
+            filter(models.Image.id == image_id).\
+            first()
+        if img == None:
+            return None
+        data: schemas.ImageSchema = img
+        return data
+
+
+def get_image_list(offset: int = 0, limit: int = 30):
+    with get_db() as db:
+        images = db.query(models.Image).offset(offset).limit(limit).all()
+        return images
+
+
+def update_image(data: schemas.ImageManagementSchema):
+    with get_db() as db:
+        image = db.query(models.Image).filter(models.Image.id == data['id'])
+        try:
+            data['colors'] = json.dumps(data['colors'])
+        except:
+            pass
+        try:
+            del data['author']
+        except:
+            pass
+        try:
+            del data['tags']
+        except:
+            pass
+        if image:
+            image.update(data)
+            db.commit()
+            updated_image = db.query(
+                models.Image).filter(models.Image.id == data['id']).first()
+            return updated_image
+        else:
+            return None

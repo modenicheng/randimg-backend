@@ -7,3 +7,5 @@ __pycache__/
 *.egg
 *.egg-link
 venv/
+secret.key
+configs.py
