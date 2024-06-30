@@ -10,7 +10,7 @@ from configs import CDN_BASE_URL
 import random
 from faker import Faker
 import json
-
+import time
 from contextlib import contextmanager
 
 fake = Faker()
@@ -93,7 +93,8 @@ def create_image_rebuild(image_data: dict):
                 models.Tag).filter(models.Tag.name == tag['name']).first()
             if not tag_obj:
                 new_tag = models.Tag(
-                    name=tag['name'], translated_name=tag.get('translated_name'))
+                    name=tag['name'],
+                    translated_name=tag.get('translated_name'))
                 db.add(new_tag)
                 db.commit()
                 db.refresh(new_tag)
@@ -106,20 +107,21 @@ def create_image_rebuild(image_data: dict):
         # Create author if author is not exist
         author_obj = db.query(models.Author).filter(
             models.Author.name == image_data['author']['name'],
-            models.Author.platform_id == str(image_data['author']['platform_id'])
-            ).first()
+            models.Author.platform_id == str(
+                image_data['author']['platform_id'])).first()
         if not author_obj:
             author_data = image_data['author']
             new_author = models.Author(name=author_data['name'],
                                        platform=author_data['platform'],
-                                       platform_id=str(author_data['platform_id']))
+                                       platform_id=str(
+                                           author_data['platform_id']))
             db.add(new_author)
             db.commit()
             db.refresh(new_author)
             author = new_author
         else:
             author = author_obj
-        
+
         source_id = image_data['id']
         source_url = f'https://www.pixiv.net/artworks/{source_id}'
         file_name = image_data['image_url'].split('/')[-1]
@@ -137,6 +139,18 @@ def create_image_rebuild(image_data: dict):
         db.commit()
         db.refresh(image)
         return image
+
+
+def uploaded_image(image_path: str):
+    with get_db() as db:
+        img = db.query(models.Image).filter(
+            models.Image.image_path == image_path).first()
+        while img == None:
+            time.sleep(1)
+            img = db.query(models.Image).filter(
+                models.Image.image_path == image_path).first()
+        img.uploaded = True
+        db.commit()
 
 
 def get_illust_ids():
@@ -164,36 +178,49 @@ def get_image_by_id(image_id: int):
         return data
 
 
-def get_image_list(offset: int = 0,
-                   limit: int = 30,
-                   accessable=True,
-                   more_data=False):
+def get_image_list(offset: int = 0, limit: int = 30, more_data: bool = False):
     with get_db() as db:
         images = db.query(models.Image).filter(
-            models.Image.uploaded == True, models.Image.accessable ==
-            accessable).offset(offset).limit(limit).all()
+            models.Image.uploaded == True, models.Image.accessable
+            != more_data).offset(offset).limit(limit).all()
         if more_data:
             data = [{
-                'id': image.id,
-                "src": CDN_BASE_URL + image.image_path,
-                "title": image.title,
-                'source_id': image.source_id,
-                "aspect_ratio": image.aspect_ratio,
-                "primary_color": json.loads(image.colors)['color_primary'],
-                "accessable": image.accessable,
-                "author": image.author,
-                "tags": image.tags,
+                'id':
+                image.id,
+                "src":
+                CDN_BASE_URL + image.image_path,
+                "title":
+                image.title,
+                'source_id':
+                image.source_id,
+                "aspect_ratio":
+                image.aspect_ratio,
+                "primary_color":
+                image.colors['primary_color'],
+                "accessable":
+                image.accessable,
+                "author": {
+                    'id': image.author.id,
+                    'name': image.author.name,
+                    'platform_id': image.author.platform_id,
+                    'platform': image.author.platform
+                },
+                "tags": [{
+                    "id": tag.id,
+                    "name": tag.name,
+                    "translated_name": tag.translated_name
+                } for tag in image.tags],
             } for image in images]
         else:
             data = [{
                 'id': image.id,
                 "src": CDN_BASE_URL + image.image_path,
                 "title": image.title,
-                "author": image.author,
+                "author": image.author_id,
                 "tags": image.tags,
                 'source_id': image.source_id,
                 "aspect_ratio": image.aspect_ratio,
-                "primary_color": json.loads(image.colors)['color_primary'],
+                "primary_color": image.colors['primary_color'],
             } for image in images]
         return data
 

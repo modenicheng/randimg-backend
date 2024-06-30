@@ -1,7 +1,8 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, Table, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, JSON, Table, Float, DateTime, Enum
+from sqlalchemy.orm import relationship, Mapped
 from pydantic import BaseModel
-
+from typing import List
+import enum
 from .database import Base
 
 image_tag_association = Table(
@@ -22,7 +23,8 @@ class Image(Base):
                         secondary=image_tag_association,
                         back_populates="images",
                         lazy=False)
-    author_id = Column(Integer, ForeignKey("authors.id"))
+    author_id: Mapped[int] = Column(Integer, ForeignKey("authors.id"))
+    author: Mapped['Author'] = relationship(back_populates='images')
     width = Column(Integer)
     height = Column(Integer)
     aspect_ratio = Column(Float(4))  # w / h
@@ -56,7 +58,7 @@ class Author(Base):
     platform = Column(String, nullable=True)
     platform_id = Column(String, nullable=True)
     homepage = Column(String, nullable=True)
-    images = relationship("Image")
+    images: Mapped[List['Image']] = relationship(back_populates='author')
 
     def __repr__(self):
         return f"<Author(id={self.id}, name={self.name}, homepage={self.homepage})>"
@@ -69,3 +71,33 @@ class Admin(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
     is_superuser = Column(Boolean, default=False)
+
+
+class CrawlerStatus(enum.Enum):
+    WAITING = 0
+    WORKING = 1
+    FINISHED = 2
+    FAILED = 3
+
+
+class CrawlerType(enum.Enum):
+    RANKING = 0
+    USER = 1
+    SEARCH = 2
+
+
+class Crawler(Base):
+    __tablename__ = "crawlers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_name = Column(String, nullable=False)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    crawl_type = Column(Enum(CrawlerType))
+    status = Column(Enum(CrawlerStatus))
+    total_pages = Column(Integer)
+    processed_pages = Column(Integer)
+    target_user_id = Column(String)
+    target_start_date = Column(DateTime)
+    target_end_date = Column(DateTime)
+    target_search_prompt = Column(String) # 搜索爬虫的tag列表，以 `,` 分割

@@ -190,14 +190,13 @@ def rand_image(format: str = 'json',
                     models.Image.aspect_ratio > ratio_floor,
                     models.Image.aspect_ratio < ratio_ceil
                 ).all()
-        if len(image_list) == 0: return Exception('No image found')
+        if len(image_list) == 0: raise HTTPException(status_code=404, detail='No image found')
         else:
             ic(len(image_list))
             img = random.choice(image_list)
 
         if format == 'json':
             data = crud.get_image_by_id(img.id).__dict__
-            data['colors'] = json.loads(img.colors)
             data['src'] = CDN_BASE_URL + img.image_path
             del data['uploaded'], data['accessable'], data['image_path']
             return data
@@ -215,13 +214,12 @@ def get_image_list(authorization: Annotated[str, Header()] = None,
     if offset < 0: offset = 0
     if limit < 0: limit = 0
     
-    # 如果带有验证，则验证通过后返回全部图片，如果无验证则只返回accessable=true的图片
+    # 如果带有验证，则验证通过后返回全部已上传图片，如果无验证则只返回accessable=true的图片
     if authorization:
         token = authorization.split(' ')[1]
         if auth(token):
             return crud.get_image_list(offset=offset,
                                        limit=limit,
-                                       accessable=True,
                                        more_data=True)
     else:
         return crud.get_image_list(
@@ -254,6 +252,15 @@ def update_image(image_id: int, image: schemas.ImageManagementSchema,
 def del_image(image_id: int):
     pass
 
+@app.get('/crawler')
+async def get_crawler_status():
+    pass
+
+@app.post('/crawler')
+def create_crawler(data: schemas.CreateCrawlerSchema):
+    if data.crawl_type == models.CrawlerType.USER:
+        ...
+    pass
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+    uvicorn.run(app, host='0.0.0.0', port=800)

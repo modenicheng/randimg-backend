@@ -1,8 +1,13 @@
+aiofiles==24.1.0
+aiohttp==3.9.5
+aiosignal==1.3.1
 alembic==1.13.1
 amqp==5.2.0
 annotated-types==0.7.0
 anyio==4.4.0
 asttokens==2.4.1
+async-timeout==4.0.3
+attrs==23.2.0
 bcrypt==4.0.1
 beautifulsoup4==4.12.3
 billiard==4.2.0
@@ -16,10 +21,12 @@ click==8.1.7
 click-didyoumean==0.3.1
 click-plugins==1.1.1
 click-repl==0.3.0
+cloudscraper==1.2.71
 colorama==0.4.6
 contourpy==1.2.1
 cryptography==42.0.8
 cycler==0.12.1
+Deprecated==1.2.14
 diskcache==5.6.3
 dnspython==2.6.1
 ecdsa==0.19.0
@@ -30,6 +37,7 @@ Faker==25.8.0
 fastapi==0.111.0
 fastapi-cli==0.0.4
 fonttools==4.53.0
+frozenlist==1.4.1
 greenlet==3.0.3
 h11==0.14.0
 httpcore==1.0.5
@@ -49,12 +57,15 @@ markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 matplotlib==3.9.0
 mdurl==0.1.2
+multidict==6.0.5
 numpy==1.26.4
 orjson==3.10.4
 packaging==24.1
 passlib==1.7.4
 pillow==10.3.0
 pixiv-utils==1.0.0
+PixivPy-Async==1.2.14
+pixivpy3==3.7.5
 prompt_toolkit==3.0.47
 psycopg2==2.9.9
 pyasn1==0.6.0
@@ -62,6 +73,7 @@ pycparser==2.22
 pydantic==2.7.3
 pydantic_core==2.18.4
 Pygments==2.18.0
+pyOpenSSL==24.1.0
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
@@ -71,6 +83,7 @@ python-multipart==0.0.9
 PyWavelets==1.6.0
 PyYAML==6.0.1
 requests==2.32.3
+requests-toolbelt==1.0.0
 rich==13.7.1
 rsa==4.9
 s3transfer==0.10.1
@@ -94,3 +107,5 @@ vine==5.1.0
 watchfiles==0.22.0
 wcwidth==0.2.13
 websockets==12.0
+wrapt==1.16.0
+yarl==1.9.4

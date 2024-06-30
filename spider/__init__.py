@@ -321,6 +321,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 l = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+class PixivCrawlerBase:
+    def __init__(self, user_id: int | str) -> None:
+        self.api = ByPassSniApi()
+        self.api.require_appapi_hosts()
+        self.api.set_accept_language('zh-CN')
+        self.api.auth(refresh_token=self.get_token())
+        self.storage = oss.OSS()
+        
+    def get_token(self):
+        current = cache.get('pixiv_refresh_token')
+        prev = cache.get('pixiv_refresh_token_prev')
+        if current:
+            return current
+        elif prev:
+            new = self.api.refresh_token
+            cache.set('pixiv_refresh_token', new, expire=3000)
+            cache.set('pixiv_refresh_token_prev', new, expire=3600)
+            return new
+        else:
+            new = input("pixiv refresh token: ")
+            cache.set('pixiv_refresh_token', new, expire=3000)
+            cache.set('pixiv_refresh_token_prev', new, expire=3600)
+            return new
 
 class PixivUserCrawler:
 
@@ -395,6 +418,7 @@ class PixivUserCrawler:
     def upload_image(self, image_blob, image_uri: str):
         l.info(f'Uploading {image_uri}')
         self.storage.upload_image_blob(image_blob, image_uri)
+        crud.uploaded_image(image_uri)
         l.info(f'Image {image_uri} uploaded')
 
     def crawl(self):
