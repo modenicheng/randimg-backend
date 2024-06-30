@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body, Depends, status
+from fastapi import FastAPI, Body, Depends, status, Header
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -27,16 +27,27 @@ from icecream import ic
 from db.schemas import AdminSchema
 from sqlalchemy.orm import Session
 from jose import jwt
-from jose.exceptions import JWEInvalidAuth
-# import jwt.jwt as jwt
-# from jwt.exceptions import InvalidTokenError
+from jose.exceptions import JWEInvalidAuth, ExpiredSignatureError
+
 from passlib.context import CryptContext
 
 from configs import *
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class TokenData(BaseModel):
@@ -58,7 +69,6 @@ def get_password_hash(password):
 
 def authenticate_user(username: str, password: str):
     user = get_admin(username)
-    ic(user)
     if not user:
         return False
     if not verify_password(password, user.password):
@@ -67,6 +77,7 @@ def authenticate_user(username: str, password: str):
 
 
 def decode_token(token: str) -> AdminSchema:
+    ic(token)
     with get_db() as db:
         admin = db.query(
             models.Admin).filter(models.Admin.username == token).first()
@@ -79,7 +90,6 @@ def get_admin(username: str):
     with get_db() as db:
         admin: schemas.AdminSchema = db.query(
             models.Admin).filter(models.Admin.username == username).first()
-        ic(admin)
         return admin
 
 
@@ -95,16 +105,18 @@ def create_access_token(data: dict,
     return encoded_jwt
 
 
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
+
+
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
+        if username == '':
             raise credentials_exception
         token_data = TokenData(username=username)
     except JWEInvalidAuth:
@@ -115,9 +127,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 
-@app.get('/auth')
-async def auth(token: Annotated[str, Depends(oauth2_scheme)]):
-    return {'token': token}
+def auth(token: str = ''):
+    ic(token)
+    try:
+        user = get_current_user(token)
+        return True
+    except ExpiredSignatureError as e:
+        raise HTTPException(status_code=401, detail='token expired')
 
 
 @app.post("/token")
@@ -138,7 +154,7 @@ async def login_for_access_token(
 
 @app.get("/image/{image_id}")
 def get_image(image_id: int, format: str = 'json'):
-    data:schemas.ImageSchema = crud.get_image_by_id(image_id)
+    data: schemas.ImageSchema = crud.get_image_by_id(image_id)
     if data == None:
         return JSONResponse(content={'error': 'image not found'},
                             status_code=404)
@@ -180,8 +196,11 @@ def rand_image(format: str = 'json',
             img = random.choice(image_list)
 
         if format == 'json':
-            data = crud.get_image_by_id(img.id)
-            return JSONResponse(content=data)
+            data = crud.get_image_by_id(img.id).__dict__
+            data['colors'] = json.loads(img.colors)
+            data['src'] = CDN_BASE_URL + img.image_path
+            del data['uploaded'], data['accessable'], data['image_path']
+            return data
         elif format == 'image':
             ic(img.id)
             return RedirectResponse(url=CDN_BASE_URL + img.image_path,
@@ -189,19 +208,47 @@ def rand_image(format: str = 'json',
 
 
 @app.get('/list')
-def get_image_list(offset: int = 0, limit: int = 30):
+def get_image_list(authorization: Annotated[str, Header()] = None,
+                   offset: int = 0,
+                   limit: int = 30):
     if limit >= 300: limit = 100
     if offset < 0: offset = 0
     if limit < 0: limit = 0
-    return crud.get_image_list(offset=offset, limit=limit)
+    
+    # 如果带有验证，则验证通过后返回全部图片，如果无验证则只返回accessable=true的图片
+    if authorization:
+        token = authorization.split(' ')[1]
+        if auth(token):
+            return crud.get_image_list(offset=offset,
+                                       limit=limit,
+                                       accessable=True,
+                                       more_data=True)
+    else:
+        return crud.get_image_list(
+            offset=offset,
+            limit=limit,
+        )
+
+
+@app.patch('/list')
+def update_images(images: list[schemas.ImageManagementSchema]):
+    with get_db() as db:
+        try:
+            results = [crud.update_image(image, db) for image in images]
+            return results
+        except Exception as e:
+            ic(e)
+            raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.patch('/image/{image_id}')
 def update_image(image_id: int, image: schemas.ImageManagementSchema,
                  token: Annotated[str, Depends(oauth2_scheme)]):
     update_data = image.model_dump(exclude_unset=True)
-    image_orm = crud.update_image(update_data)
-    return image_orm
+    with get_db() as db:
+        image_orm = crud.update_image(update_data, db)
+        return image_orm
+
 
 @app.delete('/image/{image_id}')
 def del_image(image_id: int):

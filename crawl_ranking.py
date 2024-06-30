@@ -12,9 +12,3 @@ if __name__ == '__main__':
 
     rkc = RankingCrawler('daily', 'illust', datetime.date(2024, 5, 20), 20, 2)
     result = rkc.crawl()
-
-    try:
-        with open('log.txt', 'w') as f:
-            f.write(json.dumps(result))
-    finally:
-        print(result)

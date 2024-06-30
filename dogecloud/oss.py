@@ -66,7 +66,7 @@ def get_tmp_token():
     获取临时密钥
     """
 
-    if not cache.get('accessKeyId') and not DEBUG:
+    if cache.get('accessKeyId') and cache.get('accessKeySecret'):
         return
 
     res = dogecloud_api('/auth/tmp_token.json', {
@@ -82,10 +82,7 @@ def get_tmp_token():
     s3Bucket = res['data']['Buckets'][0]['s3Bucket'],
     s3Endpoint = res['data']['Buckets'][0]['s3Endpoint']
 
-    cache.set(
-        'accessKeyId',
-        credentials['accessKeyId'],
-    )
+    cache.set('accessKeyId', credentials['accessKeyId'], EXPIRE_TIME)
     cache.set('secretAccessKey', credentials['secretAccessKey'], EXPIRE_TIME)
     cache.set('sessionToken', credentials['sessionToken'], EXPIRE_TIME)
     cache.set('s3Bucket', s3Bucket[0], EXPIRE_TIME)
@@ -118,6 +115,7 @@ class OSS:
         return image_uri
 
     def upload_image_blob(self, image_blob: Image, image_uri: str):
+        get_tmp_token()
         image_file = self.image_blob_to_file_obj(image_blob)
         bucket = self.bucket
         key = image_uri
@@ -138,21 +136,20 @@ class OSS:
     def get_file_list(self, continue_file='', prefix='', limit=200):
         data = []
         params = {
-            'prefix': 's-sh-5182-randimg-1258813047/' + prefix,
+            'prefix': cache.get('bucket') + '/' + prefix,
         }
         url = f"/oss/file/list.json?bucket=randimg&prefix={params['prefix']}&continue={continue_file}&limit={limit}"
         sign_str = url + ("\n" + "")
-        
-        signedData = hmac.new(keys.SECRET_KEY.encode(), sign_str.encode('utf-8'), sha1)
+
+        signedData = hmac.new(keys.SECRET_KEY.encode(),
+                              sign_str.encode('utf-8'), sha1)
         token = signedData.digest().hex()
         headers = {
             "Host": 'api.dogecloud.com',
             'Authorization': f'TOKEN {keys.ACCESS_KEY}:{token}'
         }
-        res = requests.get("https://api.dogecloud.com" + url,
-                           headers=headers
-                           )
-        
+        res = requests.get("https://api.dogecloud.com" + url, headers=headers)
+
         if res.status_code == 200:
             json_data = res.json()
             if json_data['code'] == 200:

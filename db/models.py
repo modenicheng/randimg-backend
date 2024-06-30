@@ -9,10 +9,6 @@ image_tag_association = Table(
     Column('image_id', Integer, ForeignKey('images.id')),
     Column('tag_id', Integer, ForeignKey('tags.id')))
 
-image_author_association = Table(
-    'image_author_association', Base.metadata,
-    Column('image_id', Integer, ForeignKey('images.id')),
-    Column('author_id', Integer, ForeignKey('authors.id')))
 
 class Image(Base):
     __tablename__ = "images"
@@ -26,15 +22,12 @@ class Image(Base):
                         secondary=image_tag_association,
                         back_populates="images",
                         lazy=False)
-    author = relationship("Author",
-                          secondary=image_author_association,
-                          back_populates="images",
-                          lazy=False)
+    author_id = Column(Integer, ForeignKey("authors.id"))
     width = Column(Integer)
     height = Column(Integer)
-    aspect_ratio = Column(Float(4)) # w / h
-    colors = Column(JSON) # {"color_primary": int, "color_series": list[str]}
-    
+    aspect_ratio = Column(Float(4))  # w / h
+    colors = Column(JSON)  # {"color_primary": int, "color_series": list[str]}
+
     accessable = Column(Boolean, default=False)
     uploaded = Column(Boolean, default=False)
 
@@ -47,7 +40,7 @@ class Tag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    num = Column(Integer) # How many images have this tag
+    translated_name = Column(String)
     images = relationship("Image",
                           secondary=image_tag_association,
                           back_populates="tags")
@@ -61,17 +54,17 @@ class Author(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     platform = Column(String, nullable=True)
+    platform_id = Column(String, nullable=True)
     homepage = Column(String, nullable=True)
-    images = relationship("Image",
-                          secondary=image_author_association,
-                          back_populates="author")
-    
+    images = relationship("Image")
+
     def __repr__(self):
         return f"<Author(id={self.id}, name={self.name}, homepage={self.homepage})>"
 
+
 class Admin(Base):
     __tablename__ = "admins"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     password = Column(String)

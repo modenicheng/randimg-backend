@@ -33,9 +33,9 @@ def pixiv_image_blob(url: str, save_path: str = './tmp_images', r=0):
         sleep(5)
         return pixiv_image_blob(url, r=r + 1)
 
-
 def pixiv_artwork_page_image_list(illust_id: int):
     url = f"https://www.pixiv.net/ajax/illust/{illust_id}/pages?lang=zh"
+    print(f'Collecting image list of {illust_id}')
     try:
         res = requests.get(url,
                            headers=configs.HEADERS.update({
@@ -48,7 +48,7 @@ def pixiv_artwork_page_image_list(illust_id: int):
         sleep(5)
         return pixiv_artwork_page_image_list(illust_id)
     if res.status_code != 200:
-        ic(res.status_code, res.reason)
+        print(res.status_code, res.reason)
 
     data = res.json()
     image_list = data['body']

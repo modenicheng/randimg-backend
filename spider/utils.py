@@ -32,7 +32,7 @@ def get_brightness(color):
     return 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
 
 
-def extract_theme_colors(image: Image.Image | str, num_colors=10, scale=1):
+def extract_theme_colors(image: Image.Image | str, num_colors=10, scale=0.7):
     colors = get_dominant_colors(image, scale=scale)
 
     # 根据亮度排序颜色
