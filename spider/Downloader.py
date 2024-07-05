@@ -24,7 +24,10 @@ def pixiv_image_blob(url: str, save_path: str = './tmp_images', r=0):
         **configs.HEADERS
     }
     try:
-        res = requests.get(url, headers=headers, stream=True)
+        res = requests.get(url,
+                           headers=headers,
+                           stream=True,
+                           proxies=configs.PROXIES)
         assert res.status_code == 200
         image = Image.open(BytesIO(res.content)).convert('RGB')
         return image
@@ -32,6 +35,7 @@ def pixiv_image_blob(url: str, save_path: str = './tmp_images', r=0):
         ic(e)
         sleep(5)
         return pixiv_image_blob(url, r=r + 1)
+
 
 def pixiv_artwork_page_image_list(illust_id: int):
     url = f"https://www.pixiv.net/ajax/illust/{illust_id}/pages?lang=zh"
@@ -43,7 +47,8 @@ def pixiv_artwork_page_image_list(illust_id: int):
                                f"https://www.pixiv.net/artworks/{illust_id}",
                                "x-user-id":
                                str(configs.USER_ID),
-                           }))
+                           }),
+                           proxies=configs.PROXIES)
     except:
         sleep(5)
         return pixiv_artwork_page_image_list(illust_id)

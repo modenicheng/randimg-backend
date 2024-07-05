@@ -348,8 +348,9 @@ class PixivCrawlerBase:
 class PixivUserCrawler:
 
     def __init__(self, user_id: int | str) -> None:
-        self.api = ByPassSniApi()
-        self.api.require_appapi_hosts()
+        # self.api = ByPassSniApi()
+        # self.api.require_appapi_hosts()
+        self.api = AppPixivAPI(proxies=configs.PROXIES)
         self.api.set_accept_language('zh-CN')
         self.api.auth(refresh_token=self.get_token())
         self.user_id = user_id
@@ -375,34 +376,47 @@ class PixivUserCrawler:
     def collect_illusts_list(self):
         l.info(f"Collecting illusts list of user {self.user_id}")
         illusts_json = self.api.user_illusts(self.user_id)
-        illusts = [{
-            "id": item['id'],
-            "title": item['title'],
-            "tags": item['tags'],
-            "author": {
-                "name":
-                self.api.user_detail(item['user']['id'])['user']['name'],
-                "platform_id": item['user']['id'],
-                "platform": "pixiv",
-            }
-        } for item in illusts_json['illusts']]
-        l.info(f'Done. Total illusts: {len(illusts)}')
-        return illusts
+        for _ in range(20):
+            try:
+                illusts = [{
+                    "id": item['id'],
+                    "title": item['title'],
+                    "tags": item['tags'],
+                    "author": {
+                        "name":
+                        self.api.user_detail(item['user']['id'])['user']['name'],
+                        "platform_id": item['user']['id'],
+                        "platform": "pixiv",
+                    }
+                } for item in illusts_json['illusts']]
+                l.info(f'Done. Total illusts: {len(illusts)}')
+                return illusts
+            except KeyError as e:
+                l.error(e)
+                l.error("Reach the speed limit. wait for 20s to retry.")
+                sleep(20)
+
 
     def download_illust(self, illust):
         l.info(f'{threading.current_thread().name} | Downloading illust {illust["id"]}')
         images = Downloader.pixiv_artwork_page_image_list(illust['id'])
+        
         for image in images:
+            file_name = image['image_url'].split('/')[-1]
+            if file_name in crud.get_exist_images():
+                print(f'Image {file_name} has already existed! Skipping...')
+                continue
             image_data = {**image, **illust}
-            file_name = image_data['image_url'].split('/')[-1]
             image_blob = Downloader.pixiv_image_blob(image['image_url'])
+            
             t1 = threading.Thread(
-                target=self.dump_image(image_data, image_blob))
+                target=self.dump_image, args=(image_data, image_blob))
             t2 = threading.Thread(
-                target=self.upload_image(image_blob, file_name))
+                target=self.upload_image, args=(image_blob, file_name))
             t1.start()
             t2.start()
             t1.join()
+            del t1, t2, image_blob
 
     def dump_image(self, image_data: dict, image_blob):
         colors, primary = utils.extract_theme_colors(image_blob)
@@ -416,7 +430,7 @@ class PixivUserCrawler:
         crud.create_image_rebuild(data)
 
     def upload_image(self, image_blob, image_uri: str):
-        l.info(f'Uploading {image_uri}')
+        l.info(f'|{threading.current_thread().name}| Uploading {image_uri}')
         self.storage.upload_image_blob(image_blob, image_uri)
         crud.uploaded_image(image_uri)
         l.info(f'Image {image_uri} uploaded')

@@ -3,7 +3,7 @@ from . import models, schemas, database
 # import models, schemas, database
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy import or_, and_
 from icecream import ic
 from configs import CDN_BASE_URL
 
@@ -164,25 +164,126 @@ def get_illust_ids():
         db.close()
 
 
-def get_image_by_id(image_id: int):
-    I = models.Image
+def get_exist_images() -> list:
     with get_db() as db:
-        img = db.query(models.Image).\
+        images = db.query(
+            models.Image).filter(models.Image.uploaded == True).all()
+        image_list = [image.image_path for image in images]
+        return image_list
+
+
+def get_image_by_id(image_id: int):
+    with get_db() as db:
+        image = db.query(models.Image).\
             join(models.image_tag_association).\
             join(models.Tag, models.Tag.id == models.image_tag_association.c.tag_id).\
             filter(models.Image.id == image_id).\
+            options(joinedload(models.Image.author)).\
             first()
-        if img == None:
+        if image == None:
             return None
-        data: schemas.ImageSchema = img
+        data: schemas.ImageSchema = {
+                'id':
+                image.id,
+                "src":
+                CDN_BASE_URL + image.image_path,
+                "title":
+                image.title,
+                'source_id':
+                image.source_id,
+                "aspect_ratio":
+                image.aspect_ratio,
+                "source_url": image.source_url,
+                "width": image.width,
+                "height": image.height,
+                "colors":
+                image.colors,
+                "author": {
+                    'id': image.author.id,
+                    'name': image.author.name,
+                    'platform_id': image.author.platform_id,
+                    'platform': image.author.platform
+                },
+                "tags": [{
+                    "id": tag.id,
+                    "name": tag.name,
+                    "translated_name": tag.translated_name
+                } for tag in image.tags],
+            }
         return data
 
 
-def get_image_list(offset: int = 0, limit: int = 30, more_data: bool = False):
+def get_image_list(offset: int = 0,
+                   limit: int = 30,
+                   desc: bool = True,
+                   ratio_floor: float = 0,
+                   ratio_ceil: float = 10,
+                   tags: str = None,
+                   author: str | int = None,
+                   more_data: bool = False,
+                   full_list: bool = False,
+                   raw_obj: bool = False,
+                   only_ids: bool = False) -> list[models.Image] | list[dict]:
+    """
+    :params:
+        author      Either id or name could be recognized. Fuzzy when using name.
+        tags        Use `,` to split.
+        full_list   Equally using `limit=None`
+    """
     with get_db() as db:
-        images = db.query(models.Image).filter(
-            models.Image.uploaded == True, models.Image.accessable
-            != more_data).offset(offset).limit(limit).all()
+        if full_list:
+            offset = 0
+            limit = None
+
+        if tags:
+            images = db.\
+                query(models.Image).\
+                join(models.Image.author).\
+                join(models.image_tag_association).\
+                join(models.Tag, models.Tag.id == models.image_tag_association.c.tag_id).\
+                filter(
+                    and_(
+                    models.Image.uploaded == True,
+                    models.Image.accessable == True if not more_data else True or False,
+                    models.Image.aspect_ratio >= ratio_floor,
+                    models.Image.aspect_ratio <= ratio_ceil),
+                    or_(models.Author.id == author if type(author) == int else
+                        models.Author.name.like("%" + author +
+                                                "%")) if author != None else True,
+                    or_(models.Tag.name.in_(tags.split(',')),
+                        models.Tag.translated_name.in_(tags.split(',')))
+                    if tags != None and tags != '' else True,
+                ).\
+                order_by(models.Image.id.desc() if desc else models.Image.id.asc()).\
+                offset(offset).\
+                limit(limit).\
+                all()
+        else:
+            images = db.\
+                query(models.Image).\
+                join(models.Image.author).\
+                filter(
+                    and_(
+                    models.Image.uploaded == True,
+                    models.Image.accessable == True if not more_data else True or False,
+                    models.Image.aspect_ratio >= ratio_floor,
+                    models.Image.aspect_ratio <= ratio_ceil),
+                    or_(models.Author.id == author if type(author) == int else
+                        models.Author.name.like("%" + author +
+                                                "%")) if author != None else True,
+                    or_(models.Tag.name.in_(tags.split(',')),
+                        models.Tag.translated_name.in_(tags.split(',')))
+                    if tags != None and tags != '' else True,
+                ).\
+                order_by(models.Image.id.desc() if desc else models.Image.id.asc()).\
+                offset(offset).\
+                limit(limit).\
+                all()
+
+        if raw_obj and not only_ids:
+            return images
+        if only_ids:
+            return [i.id for i in images]
         if more_data:
             data = [{
                 'id':
@@ -213,14 +314,25 @@ def get_image_list(offset: int = 0, limit: int = 30, more_data: bool = False):
             } for image in images]
         else:
             data = [{
-                'id': image.id,
-                "src": CDN_BASE_URL + image.image_path,
-                "title": image.title,
-                "author": image.author_id,
-                "tags": image.tags,
-                'source_id': image.source_id,
-                "aspect_ratio": image.aspect_ratio,
-                "primary_color": image.colors['primary_color'],
+                'id':
+                image.id,
+                "src":
+                CDN_BASE_URL + image.image_path,
+                "title":
+                image.title,
+                "author":
+                image.author_id,
+                "tags": [{
+                    "id": tag.id,
+                    "name": tag.name,
+                    "translated_name": tag.translated_name
+                } for tag in image.tags],
+                'source_id':
+                image.source_id,
+                "aspect_ratio":
+                image.aspect_ratio,
+                "primary_color":
+                image.colors['primary_color'],
             } for image in images]
         return data
 

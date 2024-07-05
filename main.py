@@ -159,8 +159,6 @@ def get_image(image_id: int, format: str = 'json'):
         return JSONResponse(content={'error': 'image not found'},
                             status_code=404)
     if format == 'json':
-        del data.uploaded, data.accessable
-        data.colors = json.loads(data.colors)
         return data
     elif format == 'image':
         return RedirectResponse(url=CDN_BASE_URL + data.image_path,
@@ -171,56 +169,49 @@ def get_image(image_id: int, format: str = 'json'):
 def rand_image(format: str = 'json',
                ratio_floor: float = 0,
                ratio_ceil: float = 10,
-               tags=''):
-    with get_db() as db:
-        if tags:
-            tags = tags.split(',')
-            image_list = db.query(models.Image).\
-                join(models.Image.tags).\
-                filter(
-                    models.Image.accessable == True,
-                    models.Image.aspect_ratio > ratio_floor,
-                    models.Image.aspect_ratio < ratio_ceil,
-                    models.Tag.name.in_(tags)
-                ).all()
+               tags=None):
+        image_list = crud.get_image_list(ratio_ceil=ratio_ceil,
+                                            ratio_floor=ratio_floor,
+                                            full_list=True,
+                                            tags=tags,
+                                            only_ids=True)
+        if len(image_list) == 0:
+            raise HTTPException(status_code=404, detail='No image found')
         else:
-            image_list = db.query(models.Image).\
-                filter(
-                    models.Image.accessable == True,
-                    models.Image.aspect_ratio > ratio_floor,
-                    models.Image.aspect_ratio < ratio_ceil
-                ).all()
-        if len(image_list) == 0: raise HTTPException(status_code=404, detail='No image found')
-        else:
-            ic(len(image_list))
-            img = random.choice(image_list)
+            img_id = random.choice(image_list)
+            img = crud.get_image_by_id(img_id)
 
         if format == 'json':
-            data = crud.get_image_by_id(img.id).__dict__
-            data['src'] = CDN_BASE_URL + img.image_path
-            del data['uploaded'], data['accessable'], data['image_path']
-            return data
+            return img
         elif format == 'image':
-            ic(img.id)
-            return RedirectResponse(url=CDN_BASE_URL + img.image_path,
+            return RedirectResponse(url=img['src'],
                                     status_code=307)
 
 
 @app.get('/list')
 def get_image_list(authorization: Annotated[str, Header()] = None,
-                   offset: int = 0,
-                   limit: int = 30):
+                    offset: int = 0,
+                    limit: int = 30,
+                    desc: bool = True,
+                    ratio_floor: float = 0,
+                    ratio_ceil: float = 10,
+                    author: str | int = None,
+                    tags=None):
     if limit >= 300: limit = 100
     if offset < 0: offset = 0
     if limit < 0: limit = 0
-    
+
     # 如果带有验证，则验证通过后返回全部已上传图片，如果无验证则只返回accessable=true的图片
     if authorization:
         token = authorization.split(' ')[1]
         if auth(token):
             return crud.get_image_list(offset=offset,
                                        limit=limit,
-                                       more_data=True)
+                                       more_data=True,
+                                       desc=desc,
+                                       ratio_ceil=ratio_ceil,
+                                       ratio_floor=ratio_floor,
+                                       author=author)
     else:
         return crud.get_image_list(
             offset=offset,
@@ -252,15 +243,18 @@ def update_image(image_id: int, image: schemas.ImageManagementSchema,
 def del_image(image_id: int):
     pass
 
+
 @app.get('/crawler')
 async def get_crawler_status():
     pass
+
 
 @app.post('/crawler')
 def create_crawler(data: schemas.CreateCrawlerSchema):
     if data.crawl_type == models.CrawlerType.USER:
         ...
     pass
+
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=800)

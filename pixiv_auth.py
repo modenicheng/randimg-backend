@@ -122,7 +122,9 @@ def auto_refresh():
         try:
             if not cache.get('pixiv_refresh_token') and cache.get('pixiv_refresh_token_prev'):
                 print('Refresh token expired, refreshing...')
-                refresh(cache.get('pixiv_refresh_token_prev'))
+                refresh_token = refresh(cache.get('pixiv_refresh_token_prev'))['refresh_token']
+                cache.set('pixiv_refresh_token', refresh_token, expire=3000)
+                cache.set('pixiv_refresh_token_prev', refresh_token, expire=3600)
                 print('Refresh token refreshed, new token:',
                     cache.get('pixiv_refresh_token'))
 
@@ -130,8 +132,8 @@ def auto_refresh():
                     'pixiv_refresh_token_prev'):
                 data = login()
                 refresh_token = data['refresh_token']
-                cache.set('pixiv_refresh_token', refresh_token)
-                cache.set('pixiv_refresh_token_prev', refresh_token)
+                cache.set('pixiv_refresh_token', refresh_token, expire=3000)
+                cache.set('pixiv_refresh_token_prev', refresh_token, expire=3600)
             elif cache.get('pixiv_refresh_token') and cache.get('pixiv_refresh_token_prev'):
                 logger('Pixiv refresh token has not expired, wait for 2 minutes to refresh.')
                 time.sleep(60 * 2)
