@@ -321,14 +321,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 l = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+
 class PixivCrawlerBase:
+
     def __init__(self, user_id: int | str) -> None:
         self.api = ByPassSniApi()
         self.api.require_appapi_hosts()
         self.api.set_accept_language('zh-CN')
         self.api.auth(refresh_token=self.get_token())
         self.storage = oss.OSS()
-        
+
     def get_token(self):
         current = cache.get('pixiv_refresh_token')
         prev = cache.get('pixiv_refresh_token_prev')
@@ -344,6 +346,7 @@ class PixivCrawlerBase:
             cache.set('pixiv_refresh_token', new, expire=3000)
             cache.set('pixiv_refresh_token_prev', new, expire=3600)
             return new
+
 
 class PixivUserCrawler:
 
@@ -376,6 +379,7 @@ class PixivUserCrawler:
     def collect_illusts_list(self):
         l.info(f"Collecting illusts list of user {self.user_id}")
         illusts_json = self.api.user_illusts(self.user_id)
+        username = self.api.user_detail(self.user_id)['user']['name']
         for _ in range(20):
             try:
                 illusts = [{
@@ -383,8 +387,7 @@ class PixivUserCrawler:
                     "title": item['title'],
                     "tags": item['tags'],
                     "author": {
-                        "name":
-                        self.api.user_detail(item['user']['id'])['user']['name'],
+                        "name": username,
                         "platform_id": item['user']['id'],
                         "platform": "pixiv",
                     }
@@ -396,11 +399,12 @@ class PixivUserCrawler:
                 l.error("Reach the speed limit. wait for 20s to retry.")
                 sleep(20)
 
-
     def download_illust(self, illust):
-        l.info(f'{threading.current_thread().name} | Downloading illust {illust["id"]}')
+        l.info(
+            f'{threading.current_thread().name} | Downloading illust {illust["id"]}'
+        )
         images = Downloader.pixiv_artwork_page_image_list(illust['id'])
-        
+
         for image in images:
             file_name = image['image_url'].split('/')[-1]
             if file_name in crud.get_exist_images():
@@ -408,11 +412,11 @@ class PixivUserCrawler:
                 continue
             image_data = {**image, **illust}
             image_blob = Downloader.pixiv_image_blob(image['image_url'])
-            
-            t1 = threading.Thread(
-                target=self.dump_image, args=(image_data, image_blob))
-            t2 = threading.Thread(
-                target=self.upload_image, args=(image_blob, file_name))
+
+            t1 = threading.Thread(target=self.dump_image,
+                                  args=(image_data, image_blob))
+            t2 = threading.Thread(target=self.upload_image,
+                                  args=(image_blob, file_name))
             t1.start()
             t2.start()
             t1.join()
