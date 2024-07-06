@@ -2,7 +2,7 @@ from spider import PixivUserCrawler
 from icecream import ic
 from concurrent.futures import ThreadPoolExecutor
 
-
+from crawlers import manager
 
 from db import crud
 
@@ -13,4 +13,6 @@ def c(id) :
     
 if __name__ == "__main__" :   
     for i in ids:
-        c(i)
+        # c(i)
+        crawler = manager.UserCrawlerManager(i)
+        crawler.crawl()

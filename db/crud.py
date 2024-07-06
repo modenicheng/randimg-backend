@@ -87,6 +87,21 @@ def create_image(data: dict):
 
 def create_image_rebuild(image_data: dict):
     with get_db() as db:
+
+        img = db.query(models.Image).filter(
+            models.Image.image_path == image_data.get('image_path')).first()
+        if img:
+            img.title=image_data['title'],
+            img.image_path=file_name,
+            img.source_id=source_id,
+            img.source_url=source_url,
+            img.width=image_data['width'],
+            img.height=image_data['height'],
+            img.aspect_ratio=image_data.get('aspect_ratio'),
+            img.colors=image_data.get('colors')
+            db.commit()
+            db.refresh(img)
+            return img
         tag_objs = []
         for tag in image_data['tags']:
             tag_obj = db.query(
@@ -124,15 +139,18 @@ def create_image_rebuild(image_data: dict):
 
         source_id = image_data['id']
         source_url = f'https://www.pixiv.net/artworks/{source_id}'
-        file_name = image_data['image_url'].split('/')[-1]
+        try:
+            file_name = image_data['image_url'].split('/')[-1]
+        except KeyError:
+            file_name = image_data.get('image_path')
         image = models.Image(title=image_data['title'],
                              image_path=file_name,
                              source_id=source_id,
                              source_url=source_url,
                              width=image_data['width'],
                              height=image_data['height'],
-                             aspect_ratio=image_data['aspect_ratio'],
-                             colors=image_data['colors'])
+                             aspect_ratio=image_data.get('aspect_ratio'),
+                             colors=image_data.get('colors'))
         author.images.append(image)
         image.tags.extend(tag_objs)
         db.add(image)
@@ -183,33 +201,36 @@ def get_image_by_id(image_id: int):
         if image == None:
             return None
         data: schemas.ImageSchema = {
-                'id':
-                image.id,
-                "src":
-                CDN_BASE_URL + image.image_path,
-                "title":
-                image.title,
-                'source_id':
-                image.source_id,
-                "aspect_ratio":
-                image.aspect_ratio,
-                "source_url": image.source_url,
-                "width": image.width,
-                "height": image.height,
-                "colors":
-                image.colors,
-                "author": {
-                    'id': image.author.id,
-                    'name': image.author.name,
-                    'platform_id': image.author.platform_id,
-                    'platform': image.author.platform
-                },
-                "tags": [{
-                    "id": tag.id,
-                    "name": tag.name,
-                    "translated_name": tag.translated_name
-                } for tag in image.tags],
-            }
+            'id':
+            image.id,
+            "src":
+            CDN_BASE_URL + image.image_path,
+            "title":
+            image.title,
+            'source_id':
+            image.source_id,
+            "aspect_ratio":
+            image.aspect_ratio,
+            "source_url":
+            image.source_url,
+            "width":
+            image.width,
+            "height":
+            image.height,
+            "colors":
+            image.colors,
+            "author": {
+                'id': image.author.id,
+                'name': image.author.name,
+                'platform_id': image.author.platform_id,
+                'platform': image.author.platform
+            },
+            "tags": [{
+                "id": tag.id,
+                "name": tag.name,
+                "translated_name": tag.translated_name
+            } for tag in image.tags],
+        }
         return data
 
 
