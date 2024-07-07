@@ -562,7 +562,4 @@ def get_unprocessed_image_and_change_status():
                                  models.Image.processing == False).first()
         if image == None:
             return None
-        image.processing = True
-        db.commit()
-        db.refresh(image)
         return image

@@ -12,6 +12,15 @@ def worker():
         image_path = res.json()['image_path']
     else:
         return
+    data = {
+        'id': image_id,
+        'image_path': image_path,
+        "processed": False,
+        "processing": True,
+    }
+    requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+                           headers=configs.HEADERS,
+                           json=data)
     print(f'Start to process image {image_id}')
     res = requests.api.get(configs.SERVER + 'image/' + str(image_id),
                            params={'local': 'true'},
