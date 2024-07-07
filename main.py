@@ -153,16 +153,20 @@ async def login_for_access_token(
 
 
 @app.get("/image/{image_id}")
-def get_image(image_id: int, format: str = 'json'):
-    data: schemas.ImageSchema = crud.get_image_by_id(image_id)
+def get_image(image_id: int, format: str = 'json', local: bool = False):
+    data: dict = crud.get_image_by_id(image_id)
     if data == None:
         return JSONResponse(content={'error': 'image not found'},
                             status_code=404)
+    if local == True:
+        try:
+            return FileResponse('./images/' + data.get('image_path'))
+        except FileNotFoundError:
+            return HTTPException(status_code=404, detail='image not found')
     if format == 'json':
         return data
     elif format == 'image':
-        return RedirectResponse(url=CDN_BASE_URL + data.image_path,
-                                status_code=307)
+        return RedirectResponse(url=data['src'], status_code=307)
 
 
 @app.get('/')
@@ -170,33 +174,32 @@ def rand_image(format: str = 'json',
                ratio_floor: float = 0,
                ratio_ceil: float = 10,
                tags=None):
-        image_list = crud.get_image_list(ratio_ceil=ratio_ceil,
-                                            ratio_floor=ratio_floor,
-                                            full_list=True,
-                                            tags=tags,
-                                            only_ids=True)
-        if len(image_list) == 0:
-            raise HTTPException(status_code=404, detail='No image found')
-        else:
-            img_id = random.choice(image_list)
-            img = crud.get_image_by_id(img_id)
+    image_list = crud.get_image_list(ratio_ceil=ratio_ceil,
+                                     ratio_floor=ratio_floor,
+                                     full_list=True,
+                                     tags=tags,
+                                     only_ids=True)
+    if len(image_list) == 0:
+        raise HTTPException(status_code=404, detail='No image found')
+    else:
+        img_id = random.choice(image_list)
+        img = crud.get_image_by_id(img_id)
 
-        if format == 'json':
-            return img
-        elif format == 'image':
-            return RedirectResponse(url=img['src'],
-                                    status_code=307)
+    if format == 'json':
+        return img
+    elif format == 'image':
+        return RedirectResponse(url=img['src'], status_code=307)
 
 
 @app.get('/list')
 def get_image_list(authorization: Annotated[str, Header()] = None,
-                    offset: int = 0,
-                    limit: int = 30,
-                    desc: bool = True,
-                    ratio_floor: float = 0,
-                    ratio_ceil: float = 10,
-                    author: str | int = None,
-                    tags=None):
+                   offset: int = 0,
+                   limit: int = 30,
+                   desc: bool = True,
+                   ratio_floor: float = 0,
+                   ratio_ceil: float = 10,
+                   author: str | int = None,
+                   tags=None):
     if limit >= 300: limit = 100
     if offset < 0: offset = 0
     if limit < 0: limit = 0
@@ -219,20 +222,21 @@ def get_image_list(authorization: Annotated[str, Header()] = None,
         )
 
 
-@app.patch('/list')
-def update_images(images: list[schemas.ImageManagementSchema]):
-    with get_db() as db:
-        try:
-            results = [crud.update_image(image, db) for image in images]
-            return results
-        except Exception as e:
-            ic(e)
-            raise HTTPException(status_code=400, detail=str(e))
+# @app.patch('/list')
+# def update_images(images: list[schemas.ImageManagementSchema]):
+#     with get_db() as db:
+#         try:
+#             results = [crud.update_image(image, db) for image in images]
+#             return results
+#         except Exception as e:
+#             ic(e)
+#             raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.patch('/image/{image_id}')
 def update_image(image_id: int, image: schemas.ImageManagementSchema,
                  token: Annotated[str, Depends(oauth2_scheme)]):
+    
     update_data = image.model_dump(exclude_unset=True)
     with get_db() as db:
         image_orm = crud.update_image(update_data, db)
@@ -255,6 +259,19 @@ def create_crawler(data: schemas.CreateCrawlerSchema):
         ...
     pass
 
+
+@app.get('/crawler/image')
+def get_unprocessed_images(token: Annotated[str, Depends(oauth2_scheme)]):
+    image = crud.get_unprocessed_image_and_change_status()
+    return image
+
+@app.get('/crawler/image-list')
+def get_unprocessed_images_list(token: Annotated[str, Depends(oauth2_scheme)]):
+    if auth(token):
+        image = crud.get_unprocessed_images(ids=True)
+        return image
+    else :
+        return HTTPException(status_code=401, detail="Unauthorized")
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=800)

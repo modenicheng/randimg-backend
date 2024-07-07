@@ -238,11 +238,18 @@ def get_uploaded_images() -> list:
         return image_list
 
 
-def get_unprocessed_images() -> list:
+def get_unprocessed_images(ids: bool = False) -> list:
     with get_db() as db:
-        images = db.query(
-            models.Image).filter(models.Image.uploaded == True).all()
-        image_list = [image.image_path for image in images]
+        images = db.query(models.Image).filter(
+            models.Image.processed == False,
+            models.Image.processing == False).all()
+        if ids:
+            image_list = [{
+                'id': image.id,
+                "image_path": image.image_path
+            } for image in images]
+        else:
+            image_list = [image.image_path for image in images]
         return image_list
 
 
@@ -271,16 +278,19 @@ def is_illust_detail_downloaded(source_id: int) -> bool:
             return False
         return image.downloaded
 
+
 def is_image_url_collected(image_name: str):
     with get_db() as db:
-        image = db.query(
-            models.Image).filter(models.Image.image_path == image_name).first()
+        image = db.query(models.Image).filter(
+            models.Image.image_path == image_name).first()
         if image is None:
             return False
         if image.source_image_url:
             return True
         else:
             return False
+
+
 def is_image_downloaded(key: str) -> bool:
     with get_db() as db:
         image = db.query(
@@ -353,6 +363,8 @@ def get_image_by_id(image_id: int):
             image.id,
             "src":
             CDN_BASE_URL + image.image_path,
+            "image_path":
+            image.image_path,
             "title":
             image.title,
             'source_id':
@@ -541,3 +553,16 @@ def update_image_colors_by_image_path(image_path: str,
             return image
         else:
             return None
+
+
+def get_unprocessed_image_and_change_status():
+    with get_db() as db:
+        image = db.query(
+            models.Image).filter(models.Image.processed == False,
+                                 models.Image.processing == False).first()
+        if image == None:
+            return None
+        image.processing = True
+        db.commit()
+        db.refresh(image)
+        return image

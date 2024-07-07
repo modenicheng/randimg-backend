@@ -35,6 +35,7 @@ class Image(Base):
     uploaded = Column(Boolean, default=False)
     downloaded = Column(Boolean, default=False)
     processed = Column(Boolean, default=False)
+    processing = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"<Image(id={self.id}, image_path={self.image_path}, source_url={self.source_url})>"

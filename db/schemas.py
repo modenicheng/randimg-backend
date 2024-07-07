@@ -44,7 +44,7 @@ class AuthorSchema(BaseModel):
 
 class ImageManagementSchema(BaseModel):
     id: Optional[int] = None
-    image_path: str
+    image_path: Optional[str]
     source_url: Optional[str] = None
     source_id: Optional[int] = None
     tags: Optional[List[TagSchema]] = []
@@ -56,6 +56,8 @@ class ImageManagementSchema(BaseModel):
     accessable: Optional[bool] = False
     uploaded: Optional[bool] = False
     title: Optional[str] = None
+    processed: Optional[bool] = False
+    processing: Optional[bool] = False
 
     class Config:
         from_attributes = True
