@@ -560,6 +560,9 @@ def get_unprocessed_image_and_change_status():
         image = db.query(
             models.Image).filter(models.Image.processed == False,
                                  models.Image.processing == False).first()
+            
         if image == None:
             return None
+        image.processing = True
+        db.commit()
         return image

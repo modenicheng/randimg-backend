@@ -3,11 +3,15 @@ import requests
 from icecream import ic
 from PIL import Image
 from io import BytesIO
-
+from time import sleep
+import random
 def worker():
+    sleep(random.random())
     res = requests.api.get(configs.SERVER + 'crawler/image',
                            headers=configs.HEADERS)
     if res.status_code == 200:
+        if res.json() == []:
+            return
         image_id = res.json()['id']
         image_path = res.json()['image_path']
     else:
@@ -28,7 +32,7 @@ def worker():
                            headers=configs.HEADERS)
     assert res.status_code == 200
     image = Image.open(BytesIO(res.content)).convert('RGB')
-    colors, primary = utils.extract_theme_colors(image)
+    colors, primary = utils.extract_theme_colors(image, scale=0.3)
     data = {
         'id': image_id,
         'image_path': image_path,
@@ -39,9 +43,10 @@ def worker():
         "processed": True,
         "processing": False,
     }
-    put = requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+    requests.api.patch(configs.SERVER + '/image/' + str(image_id),
                            headers=configs.HEADERS,
                            json=data)
+    del image
     print(f'Seccessfully processed image {image_id}')
     
 def loop():
