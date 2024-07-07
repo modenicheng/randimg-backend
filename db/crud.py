@@ -563,6 +563,4 @@ def get_unprocessed_image_and_change_status():
             
         if image == None:
             return None
-        image.processing = True
-        db.commit()
         return image
