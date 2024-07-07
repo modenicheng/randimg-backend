@@ -23,8 +23,9 @@ class UserCrawlerManager:
         self.user_id = user_id
 
     def crawl(self) -> None:
-        illusts = collector.pixiv_user_collector(self.user_id)
         print(f'Start to crawl {self.user_id}')
+        illusts = collector.pixiv_user_collector(self.user_id)
+
         with ThreadPoolExecutor(
                 max_workers=configs.COLLECTOR_NUM) as collector_pool:
             collect_tasks = [
@@ -52,15 +53,8 @@ class UserCrawlerManager:
             ]
 
         with ThreadPoolExecutor(
-                max_workers=configs.PROCESSOR_NUM) as processor_pool:
-            process_tasks = [
-                processor_pool.submit(processor.process_image, image)
-                for image in downloaded_list
+                max_workers=configs.UPLOADER_NUM) as uploader_pool:
+            uploaded_tasks = [
+                uploader_pool.submit(uploader.upload_image_file, i['path'],
+                                     i['key']) for i in downloaded_list
             ]
-            
-            for i in as_completed(process_tasks):
-                print(i)
-            
-            
-            
-            

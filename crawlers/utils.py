@@ -2,6 +2,17 @@ from PIL import Image
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
+from . import configs
+import os
+
+
+def get_downloaded_image_list():
+    return [
+        os.path.join(configs.IMAGE_DIR, i).split('/')[-1]
+        for i in os.listdir(configs.IMAGE_DIR)
+    ][1:]
+
+
 def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=1):
     # 打开图像并转换为RGB模式
     if type(image) == str:
@@ -25,6 +36,7 @@ def get_brightness(color):
     # 计算颜色的亮度，公式为：0.299*R + 0.587*G + 0.114*B
     return 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
 
+
 def extract_theme_colors(image: Image.Image | str, num_colors=10, scale=0.7):
     colors = get_dominant_colors(image, scale=scale)
 
@@ -35,6 +47,7 @@ def extract_theme_colors(image: Image.Image | str, num_colors=10, scale=0.7):
     main_theme_color = sorted_colors[len(sorted_colors) // 2]
 
     return list([list(i) for i in sorted_colors]), list(main_theme_color)
+
 
 def plot_colors(colors):
     # 创建一个显示颜色的条形图
@@ -58,6 +71,7 @@ def plot_colors(colors):
 # Image HASH
 
 import imagehash
+
 
 def phash(img_path: str):
     highfreq_factor = 1

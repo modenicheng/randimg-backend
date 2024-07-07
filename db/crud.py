@@ -91,14 +91,14 @@ def create_image_rebuild(image_data: dict):
         img = db.query(models.Image).filter(
             models.Image.image_path == image_data.get('image_path')).first()
         if img:
-            img.title=image_data['title'],
-            img.image_path=file_name,
-            img.source_id=source_id,
-            img.source_url=source_url,
-            img.width=image_data['width'],
-            img.height=image_data['height'],
-            img.aspect_ratio=image_data.get('aspect_ratio'),
-            img.colors=image_data.get('colors')
+            img.title = image_data['title'],
+            img.image_path = file_name,
+            img.source_id = source_id,
+            img.source_url = source_url,
+            img.width = image_data['width'],
+            img.height = image_data['height'],
+            img.aspect_ratio = image_data.get('aspect_ratio'),
+            img.colors = image_data.get('colors')
             db.commit()
             db.refresh(img)
             return img
@@ -160,6 +160,11 @@ def create_image_rebuild(image_data: dict):
 
 
 def uploaded_image(image_path: str):
+    """Call this func after image is uploaded to cloud storage
+
+    Args:
+        image_path (str): _description_
+    """
     with get_db() as db:
         img = db.query(models.Image).filter(
             models.Image.image_path == image_path).first()
@@ -171,6 +176,31 @@ def uploaded_image(image_path: str):
         db.commit()
 
 
+def downloaded_image(image_path: str):
+    """Call this func after image is downloaded to local storage
+    Args:
+        image_path (str): The key of the image
+    """
+    with get_db() as db:
+        img = db.query(models.Image).filter(
+            models.Image.image_path == image_path).first()
+        while img == None:
+            time.sleep(1)
+            img = db.query(models.Image).filter(
+                models.Image.image_path == image_path).first()
+        img.downloaded = True
+        db.commit()
+
+def processed_image(image_path: str):
+    with get_db() as db:
+        img = db.query(models.Image).filter(
+            models.Image.image_path == image_path).first()
+        while img == None:
+            time.sleep(1)
+            img = db.query(models.Image).filter(
+                models.Image.image_path == image_path).first()
+        img.processed = True
+        db.commit()
 def get_illust_ids():
     try:
         db = database.SessionLocal()
@@ -188,6 +218,89 @@ def get_exist_images() -> list:
             models.Image).filter(models.Image.uploaded == True).all()
         image_list = [image.image_path for image in images]
         return image_list
+
+
+def get_uploaded_images() -> list:
+    """Get uploaded images from database
+
+    Returns:
+        list: image_list = [image.image_path for image in images]
+    """
+    with get_db() as db:
+        images = db.query(
+            models.Image).filter(models.Image.uploaded == True).all()
+        image_list = [image.image_path for image in images]
+        return image_list
+
+
+def get_unprocessed_images() -> list:
+    with get_db() as db:
+        images = db.query(
+            models.Image).filter(models.Image.uploaded == True).all()
+        image_list = [image.image_path for image in images]
+        return image_list
+
+
+def get_downloaded_illusts() -> list:
+    with get_db() as db:
+        images = db.query(
+            models.Image).filter(models.Image.downloaded == True).all()
+        image_list = [image.source_id for image in images]
+        return image_list
+
+def is_image_uploaded(key: str):
+    with get_db() as db:
+        image = db.query(models.Image).filter(models.Image.image_path == key).first()
+        if image is None:
+            return False
+        return image.uploaded
+def is_illust_downloaded(source_id: int) -> bool:
+    with get_db() as db:
+        image = db.query(models.Image).filter(models.Image.source_id == source_id).first()
+        if image is None:
+            return False
+        return image.downloaded
+def is_image_processed(key: str) -> bool:
+    with get_db() as db:
+        image = db.query(models.Image).filter(models.Image.image_path == key).first()
+        if image is None:
+            return False
+        return image.processed
+def get_illust_images(illust_id: int) -> list:
+    with get_db() as db:
+        images = db.query(
+            models.Image).filter(models.Image.source_id == illust_id).all()
+        return [{
+            'id':
+            image.id,
+            "image_path":
+            image.image_path,
+            "title":
+            image.title,
+            'source_id':
+            image.source_id,
+            "aspect_ratio":
+            image.aspect_ratio,
+            "source_url":
+            image.source_url,
+            "width":
+            image.width,
+            "height":
+            image.height,
+            "colors":
+            image.colors,
+            "author": {
+                'id': image.author.id,
+                'name': image.author.name,
+                'platform_id': image.author.platform_id,
+                'platform': image.author.platform
+            },
+            "tags": [{
+                "id": tag.id,
+                "name": tag.name,
+                "translated_name": tag.translated_name
+            } for tag in image.tags],
+        } for image in images]
 
 
 def get_image_by_id(image_id: int):
@@ -360,10 +473,6 @@ def get_image_list(offset: int = 0,
 
 def update_image(data: schemas.ImageManagementSchema, db: Session):
     image = db.query(models.Image).filter(models.Image.id == data['id'])
-    try:
-        data['colors'] = json.dumps(data['colors'])
-    except:
-        pass
     # 俩外键字段摆了，不会有人想改这玩意
     try:
         del data['author']
@@ -381,3 +490,16 @@ def update_image(data: schemas.ImageManagementSchema, db: Session):
         return updated_image
     else:
         return None
+
+def update_image_colors_by_image_path(image_path: str, data: dict) -> models.Image | None:
+    with get_db() as db:
+        ic(image_path, data)
+        image = db.query(models.Image).filter(models.Image.image_path == image_path).first()
+        if image is not None:
+            image.colors = data['colors']
+            image.processed = data['processed']
+            db.commit()
+            db.refresh(image)
+            return image
+        else:
+            return None

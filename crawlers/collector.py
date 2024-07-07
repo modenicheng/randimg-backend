@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from icecream import ic
 from typing import Literal
 import re
+from db import crud
 
 
 def ranking_list_collector(type: Literal['all', 'illust', "manga",
@@ -18,7 +19,20 @@ def ranking_list_collector(type: Literal['all', 'illust', "manga",
         "day", date=(datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d"))
     ic(json_result["illusts"][0])
 
+
 def pixiv_user_collector(user_id: int):
+    """Get user's illusts
+
+    Args:
+        user_id (int): pixiv user id
+
+    Returns:
+        Example: 
+            [{'author': {'name': 'さねよし', 'platform': 'pixiv', 'platform_id': 3728296},
+                'id': 53875733,
+                'tags': [{'name': 'オリジナル', 'translated_name': '原创'}],
+                'title': '無題'},]
+    """
     next_qs = False
     aapi = ByPassSniApi()
     aapi.require_appapi_hosts()
@@ -56,7 +70,14 @@ def pixiv_user_collector(user_id: int):
             sleep(20)
 
 
-def pixiv_illusts_collector(illust: dict):
+def pixiv_illusts_collector(illust: dict, r=0):
+    ext = crud.get_downloaded_illusts()
+    if illust.get('id') in ext:
+        print(f"Illust {illust.get('id')} has already been collected. Skip.")
+        return crud.get_illust_images(illust.get('id'))
+    if r > 10:
+        print(f"Illust {illust.get('id')} reach the retry limit. Skip.")
+        return
     try:
         illust_id = str(illust['id'])
     except KeyError:
@@ -77,18 +98,22 @@ def pixiv_illusts_collector(illust: dict):
     except Exception as e:
         print(f"Request {illust_id} failed. Retrying...\nERROR: {e}")
         sleep(5)
-        return pixiv_illusts_collector(illust_id)
+        return pixiv_illusts_collector(illust, r=r + 1)
 
     if res.status_code == 200:
         data = res.json()['body']
-        return [{
+        constructor = [{
             'height': image['height'],
             'width': image['width'],
             'aspect_ratio': image['width'] / image['height'],
             'url': image['urls']['original'],
+            'image_url': image['urls']['original'],
             'image_path': image['urls']['original'].split('/')[-1],
             **illust
         } for image in data]
+        for image in constructor:
+            crud.create_image_rebuild(image)
+        return constructor
     else:
-        sleep(3)
-        return pixiv_illusts_collector(illust_id)
+        sleep(5)
+        return pixiv_illusts_collector(illust_id, r=r + 1)
