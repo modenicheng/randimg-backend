@@ -109,10 +109,13 @@ def pixiv_illusts_collector(illust: dict, r=0):
             'url': image['urls']['original'],
             'image_url': image['urls']['original'],
             'image_path': image['urls']['original'].split('/')[-1],
+            "source_id": illust_id,
+            "source_url": f"https://www.pixiv.net/artworks/{illust_id}",
             **illust
         } for image in data]
         for image in constructor:
             crud.create_image_rebuild(image)
+            print(f"Create image {image['image_path']} successfully.")
         return constructor
     else:
         sleep(5)

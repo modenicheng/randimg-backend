@@ -90,18 +90,19 @@ def create_image_rebuild(image_data: dict):
 
         img = db.query(models.Image).filter(
             models.Image.image_path == image_data.get('image_path')).first()
-        if img:
+        if img != None:
             img.title = image_data['title'],
-            img.image_path = file_name,
-            img.source_id = source_id,
-            img.source_url = source_url,
+            img.image_path = image_data['image_path'],
+            img.source_id = image_data.get('id'),
+            img.source_url = image_data.get('source_url'),
             img.width = image_data['width'],
             img.height = image_data['height'],
             img.aspect_ratio = image_data.get('aspect_ratio'),
             img.colors = image_data.get('colors')
+            img.source_image_url = image_data.get('image_url')
             db.commit()
             db.refresh(img)
-            return img
+            return image_data
         tag_objs = []
         for tag in image_data['tags']:
             tag_obj = db.query(
@@ -149,6 +150,7 @@ def create_image_rebuild(image_data: dict):
                              source_url=source_url,
                              width=image_data['width'],
                              height=image_data['height'],
+                             source_image_url=image_data.get('image_url'),
                              aspect_ratio=image_data.get('aspect_ratio'),
                              colors=image_data.get('colors'))
         author.images.append(image)
@@ -191,6 +193,7 @@ def downloaded_image(image_path: str):
         img.downloaded = True
         db.commit()
 
+
 def processed_image(image_path: str):
     with get_db() as db:
         img = db.query(models.Image).filter(
@@ -201,6 +204,8 @@ def processed_image(image_path: str):
                 models.Image.image_path == image_path).first()
         img.processed = True
         db.commit()
+
+
 def get_illust_ids():
     try:
         db = database.SessionLocal()
@@ -248,31 +253,59 @@ def get_downloaded_illusts() -> list:
         image_list = [image.source_id for image in images]
         return image_list
 
+
 def is_image_uploaded(key: str):
     with get_db() as db:
-        image = db.query(models.Image).filter(models.Image.image_path == key).first()
+        image = db.query(
+            models.Image).filter(models.Image.image_path == key).first()
         if image is None:
             return False
         return image.uploaded
-def is_illust_downloaded(source_id: int) -> bool:
+
+
+def is_illust_detail_downloaded(source_id: int) -> bool:
     with get_db() as db:
-        image = db.query(models.Image).filter(models.Image.source_id == source_id).first()
+        image = db.query(
+            models.Image).filter(models.Image.source_id == source_id).first()
         if image is None:
             return False
         return image.downloaded
+
+def is_image_url_collected(image_name: str):
+    with get_db() as db:
+        image = db.query(
+            models.Image).filter(models.Image.image_path == image_name).first()
+        if image is None:
+            return False
+        if image.source_image_url:
+            return True
+        else:
+            return False
+def is_image_downloaded(key: str) -> bool:
+    with get_db() as db:
+        image = db.query(
+            models.Image).filter(models.Image.image_path == key).first()
+        if image is None:
+            return False
+        return image.downloaded
+
+
 def is_image_processed(key: str) -> bool:
     with get_db() as db:
-        image = db.query(models.Image).filter(models.Image.image_path == key).first()
+        image = db.query(
+            models.Image).filter(models.Image.image_path == key).first()
         if image is None:
             return False
         return image.processed
+
+
 def get_illust_images(illust_id: int) -> list:
     with get_db() as db:
         images = db.query(
             models.Image).filter(models.Image.source_id == illust_id).all()
         return [{
             'id':
-            image.id,
+            image.source_id,
             "image_path":
             image.image_path,
             "title":
@@ -289,6 +322,8 @@ def get_illust_images(illust_id: int) -> list:
             image.height,
             "colors":
             image.colors,
+            "url":
+            image.source_image_url,
             "author": {
                 'id': image.author.id,
                 'name': image.author.name,
@@ -491,10 +526,13 @@ def update_image(data: schemas.ImageManagementSchema, db: Session):
     else:
         return None
 
-def update_image_colors_by_image_path(image_path: str, data: dict) -> models.Image | None:
+
+def update_image_colors_by_image_path(image_path: str,
+                                      data: dict) -> models.Image | None:
     with get_db() as db:
         ic(image_path, data)
-        image = db.query(models.Image).filter(models.Image.image_path == image_path).first()
+        image = db.query(models.Image).filter(
+            models.Image.image_path == image_path).first()
         if image is not None:
             image.colors = data['colors']
             image.processed = data['processed']

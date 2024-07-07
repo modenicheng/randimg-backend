@@ -19,6 +19,7 @@ class Image(Base):
     image_path = Column(String)
     source_url = Column(String, nullable=True)
     source_id = Column(Integer, nullable=True)
+    source_image_url = Column(String, nullable=True)
     tags = relationship("Tag",
                         secondary=image_tag_association,
                         back_populates="images",

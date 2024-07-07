@@ -55,6 +55,6 @@ class UserCrawlerManager:
         with ThreadPoolExecutor(
                 max_workers=configs.UPLOADER_NUM) as uploader_pool:
             uploaded_tasks = [
-                uploader_pool.submit(uploader.upload_image_file, i['path'],
-                                     i['key']) for i in downloaded_list
+                uploader_pool.submit(uploader.upload_image_file, configs.IMAGE_DIR + '/' + i['image_path'],
+                                     i['image_path']) for i in downloaded_list
             ]
