@@ -41,6 +41,8 @@ class UserCrawlerManager:
         for i in collected_list:
             images.extend(i)
 
+        del illusts, collected_list
+
         with ThreadPoolExecutor(
                 max_workers=configs.DOWNLOADER_NUM) as downloader_pool:
             download_tasks = [
@@ -48,13 +50,19 @@ class UserCrawlerManager:
                                        illust) for illust in images
             ]
 
+            del images
+
             downloaded_list = [
                 future.result() for future in as_completed(download_tasks)
             ]
 
+            del download_tasks
+
         with ThreadPoolExecutor(
                 max_workers=configs.UPLOADER_NUM) as uploader_pool:
             uploaded_tasks = [
-                uploader_pool.submit(uploader.upload_image_file, configs.IMAGE_DIR + '/' + i['image_path'],
+                uploader_pool.submit(uploader.upload_image_file,
+                                     configs.IMAGE_DIR + '/' + i['image_path'],
                                      i['image_path']) for i in downloaded_list
             ]
+            del downloaded_list

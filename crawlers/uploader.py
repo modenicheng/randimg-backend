@@ -18,4 +18,5 @@ def upload_image_file(image_file_path: str, key: str):
     print(
         f'| {threading.current_thread().name} | ==>> Uploaded {image_file_path} to {key}'
     )
+    del storage
     

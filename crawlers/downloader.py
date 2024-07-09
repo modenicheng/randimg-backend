@@ -25,6 +25,7 @@ def download_pixiv_image_file(image: dict, r=0):
         }
     except KeyError:
         print("Image dict not valid")
+        return image
 
     try:
         res = requests.get(url,
@@ -38,6 +39,7 @@ def download_pixiv_image_file(image: dict, r=0):
         print(
             f'| {threading.current_thread().name} | Downloaded image {image_name}'
         )
+        del res
         return image
     except FileNotFoundError as e:
         ic(e)

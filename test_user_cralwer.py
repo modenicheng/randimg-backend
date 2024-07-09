@@ -16,3 +16,4 @@ if __name__ == "__main__" :
         # c(i)
         crawler = manager.UserCrawlerManager(i)
         crawler.crawl()
+        del crawler
