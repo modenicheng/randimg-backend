@@ -34,22 +34,29 @@ def pixiv_user_collector(user_id: int):
                 'title': '無題'},]
     """
     next_qs = False
-    aapi = ByPassSniApi()
-    aapi.require_appapi_hosts()
-    aapi.set_accept_language("zh-cn")
-    aapi.auth(refresh_token=configs.REFRESH_TOKEN)
-    username = aapi.user_detail(user_id)['user']['name']
-    json_response = aapi.user_illusts(user_id)
-    illusts: list = json_response['illusts']
-    next_qs = aapi.parse_qs(json_response.next_url)
-    while next_qs:
-        print("Requesting next page")
-        res = aapi.user_illusts(**next_qs)
-        illusts.extend(res['illusts'])
-        if res['next_url']:
-            next_qs = aapi.parse_qs(res['next_url'])
-        else:
-            next_qs = False
+    # aapi = ByPassSniApi()
+    # aapi.require_appapi_hosts()
+    try:
+        aapi = AppPixivAPI(proxies=configs.PROXIES)
+        aapi.set_accept_language("zh-cn")
+        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
+        username = aapi.user_detail(user_id)['user']['name']
+        json_response = aapi.user_illusts(user_id)
+        illusts: list = json_response['illusts']
+        next_qs = aapi.parse_qs(json_response.next_url)
+        while next_qs:
+            print("Requesting next page")
+            res = aapi.user_illusts(**next_qs)
+            illusts.extend(res['illusts'])
+            if res['next_url']:
+                next_qs = aapi.parse_qs(res['next_url'])
+            else:
+                next_qs = False
+    except Exception as e:
+        print(e)
+        print("Wait for 20s to retry.")
+        sleep(20)
+        return pixiv_user_collector(user_id)
     for _ in range(20):
         try:
             data = [{

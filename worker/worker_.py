@@ -8,7 +8,7 @@ import random
 
 
 def worker():
-    sleep(random.random() * 5)
+    sleep(random.random())
     res = requests.api.get(configs.SERVER + 'crawler/image',
                            headers=configs.HEADERS)
     if res.status_code == 200:
@@ -40,6 +40,7 @@ def worker():
         requests.api.patch(configs.SERVER + '/image/' + str(image_id),
                            headers=configs.HEADERS,
                            json=data)
+        sleep(2)
         return
     image = Image.open(BytesIO(res.content)).convert('RGB')
     colors, primary = utils.extract_theme_colors(image, scale=0.3)
