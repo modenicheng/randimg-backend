@@ -8,7 +8,7 @@ import random
 
 
 def worker():
-    sleep(random.random())
+    sleep(random.random() * 5)
     res = requests.api.get(configs.SERVER + 'crawler/image',
                            headers=configs.HEADERS)
     if res.status_code == 200:
