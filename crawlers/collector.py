@@ -75,7 +75,9 @@ def pixiv_illusts_collector(illust: dict, r=0):
     ext = crud.get_downloaded_illusts()
     if illust.get('id') in ext:
         print(f"Illust {illust.get('id')} has already been collected. Skip.")
+        del ext
         return crud.get_illust_images(illust.get('id'))
+    del ext
     if r > 10:
         print(f"Illust {illust.get('id')} reach the retry limit. Skip.")
         return
@@ -98,6 +100,7 @@ def pixiv_illusts_collector(illust: dict, r=0):
         return
     except Exception as e:
         print(f"Request {illust_id} failed. Retrying...\nERROR: {e}")
+        del res
         sleep(5)
         return pixiv_illusts_collector(illust, r=r + 1)
 

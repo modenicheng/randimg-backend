@@ -446,6 +446,7 @@ def get_image_list(offset: int = 0,
                 filter(
                     and_(
                     models.Image.uploaded == True,
+                    models.Image.processed ==True,
                     models.Image.accessable == True if not more_data else True or False,
                     models.Image.aspect_ratio >= ratio_floor,
                     models.Image.aspect_ratio <= ratio_ceil),
@@ -466,6 +467,7 @@ def get_image_list(offset: int = 0,
         if only_ids:
             return [i.id for i in images]
         if more_data:
+            ic(images[0].colors)
             data = [{
                 'id':
                 image.id,
@@ -478,7 +480,7 @@ def get_image_list(offset: int = 0,
                 "aspect_ratio":
                 image.aspect_ratio,
                 "primary_color":
-                image.colors['primary_color'],
+                image.colors.get('primary_color') if image.colors != None else None,
                 "accessable":
                 image.accessable,
                 "author": {
@@ -513,7 +515,7 @@ def get_image_list(offset: int = 0,
                 "aspect_ratio":
                 image.aspect_ratio,
                 "primary_color":
-                image.colors['primary_color'],
+                image.colors.get('primary_color') if image.colors != None else None,
             } for image in images]
         return data
 

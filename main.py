@@ -214,7 +214,8 @@ def get_image_list(authorization: Annotated[str, Header()] = None,
                                        desc=desc,
                                        ratio_ceil=ratio_ceil,
                                        ratio_floor=ratio_floor,
-                                       author=author)
+                                       author=author,
+                                       tags=tags)
     else:
         return crud.get_image_list(
             offset=offset,

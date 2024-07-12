@@ -5,6 +5,8 @@ from PIL import Image
 from io import BytesIO
 from time import sleep
 import random
+
+
 def worker():
     sleep(random.random())
     res = requests.api.get(configs.SERVER + 'crawler/image',
@@ -23,14 +25,22 @@ def worker():
         "processing": True,
     }
     requests.api.patch(configs.SERVER + '/image/' + str(image_id),
-                           headers=configs.HEADERS,
-                           json=data)
+                       headers=configs.HEADERS,
+                       json=data)
     print(f'Start to process image {image_id}')
     res = requests.api.get(configs.SERVER + 'image/' + str(image_id),
                            params={'local': 'true'},
                            stream=True,
                            headers=configs.HEADERS)
-    assert res.status_code == 200
+    try:
+        assert res.status_code == 200
+    except AssertionError as e:
+        data = {'id': image_id, 'processing': False}
+        print(f'Failed to process image {image_id}')
+        requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+                           headers=configs.HEADERS,
+                           json=data)
+        return
     image = Image.open(BytesIO(res.content)).convert('RGB')
     colors, primary = utils.extract_theme_colors(image, scale=0.3)
     data = {
@@ -44,11 +54,12 @@ def worker():
         "processing": False,
     }
     requests.api.patch(configs.SERVER + '/image/' + str(image_id),
-                           headers=configs.HEADERS,
-                           json=data)
+                       headers=configs.HEADERS,
+                       json=data)
     del image
     print(f'Seccessfully processed image {image_id}')
-    
+
+
 def loop():
     while True:
         try:

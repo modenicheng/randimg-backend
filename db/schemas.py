@@ -7,8 +7,8 @@ from . import models
 class TagSchema(BaseModel):
     id: Optional[int]
     name: str
+    translated_name: Optional[str]
     iamges: Optional[List['ImageSchema']] = []
-    num: Optional[int]
 
     class Config:
         from_attributes = True
@@ -34,8 +34,8 @@ class ImageSchema(BaseModel):
 class AuthorSchema(BaseModel):
     id: Optional[int]
     name: str
-    platform: str
-    homepage: str
+    platform: Optional[str] = None
+    homepage: Optional[str] = None
     image: Optional[List['ImageSchema']] = []
 
     class Config:
@@ -44,11 +44,11 @@ class AuthorSchema(BaseModel):
 
 class ImageManagementSchema(BaseModel):
     id: Optional[int] = None
-    image_path: Optional[str]
+    # image_path: Optional[str]
     source_url: Optional[str] = None
     source_id: Optional[int] = None
     tags: Optional[List[TagSchema]] = []
-    author: Optional[List['AuthorSchema']] = []
+    author: Optional['AuthorSchema'] = None
     colors: Optional[Dict] = None
     width: Optional[int] = None
     height: Optional[int] = None
