@@ -1,6 +1,8 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 import threading
 from . import configs, collector, uploader, downloader, processor
+from multiprocessing import Pool
+from icecream import ic
 
 
 class Manager:
@@ -36,7 +38,7 @@ class UserCrawlerManager:
             collected_list = [
                 future.result() for future in as_completed(collect_tasks)
             ]
-
+        
         images = []
         for i in collected_list:
             images.extend(i)
@@ -57,6 +59,11 @@ class UserCrawlerManager:
             ]
 
             del download_tasks
+        # with ProcessPoolExecutor(
+        #         max_workers=configs.DOWNLOADER_NUM) as downloader_pool:
+        #     downloaded_list = downloader_pool.map(
+        #         downloader.download_pixiv_image_file, images)
+        #     del images
 
         with ThreadPoolExecutor(
                 max_workers=configs.UPLOADER_NUM) as uploader_pool:
@@ -66,3 +73,9 @@ class UserCrawlerManager:
                                      i['image_path']) for i in downloaded_list
             ]
             del downloaded_list
+        # with ProcessPoolExecutor(
+        #         max_workers=configs.UPLOADER_NUM) as uploader_pool:
+
+        #     uploaded_list = uploader_pool.map(uploader.upload_image_file, [
+        #         configs.IMAGE_DIR + '/' + i['image_path'] for i in downloaded_list
+        #     ])

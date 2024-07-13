@@ -261,6 +261,14 @@ def get_downloaded_illusts() -> list:
         return image_list
 
 
+def is_illust_downloaded(illust_id: int | str):
+    illust_id = int(illust_id)
+    with get_db() as db:
+        image = db.query(
+            models.Image).filter(models.Image.source_id == illust_id).first()
+        return False if image == None else True
+
+
 def is_image_uploaded(key: str):
     with get_db() as db:
         image = db.query(
@@ -480,7 +488,8 @@ def get_image_list(offset: int = 0,
                 "aspect_ratio":
                 image.aspect_ratio,
                 "primary_color":
-                image.colors.get('primary_color') if image.colors != None else None,
+                image.colors.get('primary_color')
+                if image.colors != None else None,
                 "accessable":
                 image.accessable,
                 "author": {
@@ -515,7 +524,8 @@ def get_image_list(offset: int = 0,
                 "aspect_ratio":
                 image.aspect_ratio,
                 "primary_color":
-                image.colors.get('primary_color') if image.colors != None else None,
+                image.colors.get('primary_color')
+                if image.colors != None else None,
             } for image in images]
         return data
 
@@ -562,7 +572,7 @@ def get_unprocessed_image_and_change_status():
         image = db.query(
             models.Image).filter(models.Image.processed == False,
                                  models.Image.processing == False).first()
-            
+
         if image == None:
             return None
         image.processing = True

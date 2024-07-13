@@ -79,12 +79,9 @@ def pixiv_user_collector(user_id: int):
 
 
 def pixiv_illusts_collector(illust: dict, r=0):
-    ext = crud.get_downloaded_illusts()
-    if illust.get('id') in ext:
+    if crud.is_illust_downloaded(illust.get('id')):
         print(f"Illust {illust.get('id')} has already been collected. Skip.")
-        del ext
         return crud.get_illust_images(illust.get('id'))
-    del ext
     if r > 10:
         print(f"Illust {illust.get('id')} reach the retry limit. Skip.")
         return
