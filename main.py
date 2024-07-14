@@ -11,7 +11,7 @@ from fastapi.responses import (
     UJSONResponse,
 )
 from datetime import datetime, timedelta, timezone
-from typing import Union
+from typing import Union, Literal
 
 from fastapi.exceptions import HTTPException
 import random
@@ -195,15 +195,27 @@ def rand_image(format: str = 'json',
 def get_image_list(authorization: Annotated[str, Header()] = None,
                    offset: int = 0,
                    limit: int = 30,
-                   desc: bool = True,
+                   desc: bool | str = True,
                    ratio_floor: float = 0,
                    ratio_ceil: float = 10,
                    author: str | int = None,
+                   accessable: Literal['True', 'False', 'all', 'true',
+                                       'false'] = 'all',
                    tags=None):
     if limit >= 300: limit = 100
     if offset < 0: offset = 0
     if limit < 0: limit = 0
-
+    accessable = 'all' if accessable == 'all' else True if accessable.lower(
+    ) == 'true' else False
+    try:
+        desc = True if desc.lower() == 'true' else False
+    except:
+        pass
+    ic(desc)
+    try:
+        author = int(author)
+    except:
+        pass
     # 如果带有验证，则验证通过后返回全部已上传图片，如果无验证则只返回accessable=true的图片
     if authorization:
         token = authorization.split(' ')[1]
@@ -211,33 +223,32 @@ def get_image_list(authorization: Annotated[str, Header()] = None,
             return crud.get_image_list(offset=offset,
                                        limit=limit,
                                        more_data=True,
+                                       accessable=accessable,
                                        desc=desc,
                                        ratio_ceil=ratio_ceil,
                                        ratio_floor=ratio_floor,
                                        author=author,
                                        tags=tags)
     else:
-        return crud.get_image_list(
-            offset=offset,
-            limit=limit,
-        )
+        return crud.get_image_list(offset=offset,
+                                   limit=limit,
+                                   desc=desc,
+                                   accessable=True,
+                                   ratio_ceil=ratio_ceil,
+                                   ratio_floor=ratio_floor,
+                                   author=author,
+                                   tags=tags)
 
 
-# @app.patch('/list')
-# def update_images(images: list[schemas.ImageManagementSchema]):
-#     with get_db() as db:
-#         try:
-#             results = [crud.update_image(image, db) for image in images]
-#             return results
-#         except Exception as e:
-#             ic(e)
-#             raise HTTPException(status_code=400, detail=str(e))
+@app.get('/tags')
+async def get_tags():
+    return crud.get_tags()
 
 
 @app.patch('/image/{image_id}')
 def update_image(image_id: int, image: schemas.ImageManagementSchema,
                  token: Annotated[str, Depends(oauth2_scheme)]):
-    
+
     update_data = image.model_dump(exclude_unset=True)
     with get_db() as db:
         image_orm = crud.update_image(update_data, db)
@@ -266,13 +277,15 @@ def get_unprocessed_images(token: Annotated[str, Depends(oauth2_scheme)]):
     image = crud.get_unprocessed_image_and_change_status()
     return image
 
+
 @app.get('/crawler/image-list')
 def get_unprocessed_images_list(token: Annotated[str, Depends(oauth2_scheme)]):
     if auth(token):
         image = crud.get_unprocessed_images(ids=True)
         return image
-    else :
+    else:
         return HTTPException(status_code=401, detail="Unauthorized")
+
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=800)

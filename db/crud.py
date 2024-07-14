@@ -13,6 +13,8 @@ import json
 import time
 from contextlib import contextmanager
 
+from typing import Literal
+
 fake = Faker()
 session = database.SessionLocal()
 
@@ -402,23 +404,27 @@ def get_image_by_id(image_id: int):
         return data
 
 
-def get_image_list(offset: int = 0,
-                   limit: int = 30,
-                   desc: bool = True,
-                   ratio_floor: float = 0,
-                   ratio_ceil: float = 10,
-                   tags: str = None,
-                   author: str | int = None,
-                   more_data: bool = False,
-                   full_list: bool = False,
-                   raw_obj: bool = False,
-                   only_ids: bool = False) -> list[models.Image] | list[dict]:
+def get_image_list(
+    offset: int = 0,
+    limit: int = 30,
+    desc: bool = True,
+    ratio_floor: float = 0,
+    ratio_ceil: float = 10,
+    tags: str = None,
+    author: str | int = None,
+    more_data: bool = False,
+    full_list: bool = False,
+    raw_obj: bool = False,
+    only_ids: bool = False,
+    accessable: Literal[True, False, 'all'] = 'all'
+) -> list[models.Image] | list[dict]:
     """
     :params:
-        author      Either id or name could be recognized. Fuzzy when using name.
-        tags        Use `,` to split.
-        full_list   Equally using `limit=None`
+        :author      Either id or name could be recognized. Fuzzy when using name.
+        :tags        Use `,` to split.
+        :full_list   Equally using `limit=None`
     """
+
     with get_db() as db:
         if full_list:
             offset = 0
@@ -433,7 +439,7 @@ def get_image_list(offset: int = 0,
                 filter(
                     and_(
                     models.Image.uploaded == True,
-                    models.Image.accessable == True if not more_data else True or False,
+                    and_(models.Image.accessable == accessable) if accessable != 'all' else or_(models.Image.accessable == True, models.Image.accessable == False),
                     models.Image.aspect_ratio >= ratio_floor,
                     models.Image.aspect_ratio <= ratio_ceil),
                     or_(models.Author.id == author if type(author) == int else
@@ -455,7 +461,7 @@ def get_image_list(offset: int = 0,
                     and_(
                     models.Image.uploaded == True,
                     models.Image.processed ==True,
-                    models.Image.accessable == True if not more_data else True or False,
+                    and_(models.Image.accessable == accessable) if accessable != 'all' else or_(models.Image.accessable == True, models.Image.accessable == False),
                     models.Image.aspect_ratio >= ratio_floor,
                     models.Image.aspect_ratio <= ratio_ceil),
                     or_(models.Author.id == author if type(author) == int else
@@ -475,7 +481,6 @@ def get_image_list(offset: int = 0,
         if only_ids:
             return [i.id for i in images]
         if more_data:
-            ic(images[0].colors)
             data = [{
                 'id':
                 image.id,
@@ -579,3 +584,14 @@ def get_unprocessed_image_and_change_status():
         db.commit()
         db.refresh(image)
         return image
+
+
+def get_tags():
+    with get_db() as db:
+        tags = db.query(models.Tag).all()
+        return [{
+            "id": tag.id,
+            "name": tag.name,
+            "translated_name": tag.translated_name,
+            "search_string": tag.name + '|' + str(tag.translated_name)
+        } for tag in tags]
