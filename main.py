@@ -177,6 +177,7 @@ def rand_image(format: str = 'json',
     image_list = crud.get_image_list(ratio_ceil=ratio_ceil,
                                      ratio_floor=ratio_floor,
                                      full_list=True,
+                                     accessable=True,
                                      tags=tags,
                                      only_ids=True)
     if len(image_list) == 0:
