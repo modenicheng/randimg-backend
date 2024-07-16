@@ -24,7 +24,7 @@ def worker():
         "processed": False,
         "processing": True,
     }
-    requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+    requests.api.patch(configs.SERVER + 'image/' + str(image_id),
                        headers=configs.HEADERS,
                        json=data)
     print(f'Start to process image {image_id}')
@@ -36,7 +36,7 @@ def worker():
         assert res.status_code == 200
     except AssertionError as e:
         data = {'id': image_id, 'processing': False}
-        print(f'Failed to process image {image_id}')
+        print(f'Failed to fetch image {image_id}, {res.status_code} \n {res.content}')
         requests.api.patch(configs.SERVER + '/image/' + str(image_id),
                            headers=configs.HEADERS,
                            json=data)

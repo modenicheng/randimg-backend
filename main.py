@@ -163,6 +163,8 @@ def get_image(image_id: int, format: str = 'json', local: bool = False):
             return FileResponse('./images/' + data.get('image_path'))
         except FileNotFoundError:
             return HTTPException(status_code=404, detail='image not found')
+        except:
+            return HTTPException(status_code=404, detail='image not found')
     if format == 'json':
         return data
     elif format == 'image':

@@ -576,7 +576,8 @@ def get_unprocessed_image_and_change_status():
     with get_db() as db:
         image = db.query(
             models.Image).filter(models.Image.processed == False,
-                                 models.Image.processing == False).first()
+                                 models.Image.processing == False,
+                                 models.Image.downloaded == True).first()
 
         if image == None:
             return None
