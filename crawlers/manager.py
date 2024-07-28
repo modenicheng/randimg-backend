@@ -105,7 +105,7 @@ class FollowingUserCrawlerManager(Manager):
         users = collector.following_users_collector(self.user_id)
         print(f"Total {len(users)} users to be crawled. \n {users}")
         with ThreadPoolExecutor(
-                max_workers=configs.COLLECTOR_NUM) as collector_pool:
+                max_workers=2) as collector_pool:
             illusts_tasks = [
                 collector_pool.submit(collector.pixiv_user_collector, user)
                 for user in users
