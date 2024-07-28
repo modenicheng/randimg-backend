@@ -77,8 +77,10 @@ def pixiv_user_collector(user_id: int):
                 }
             } for item in illusts]
             print(f'Done. Total illusts: {len(data)}')
-            del aapi, username, illusts, next_qs, json_response
-            return data
+            try:
+                del aapi, username, illusts, next_qs, json_response
+            finally:
+                return data
         except KeyError as e:
             print(e)
             print("Reach the speed limit. wait for 20s to retry.")
