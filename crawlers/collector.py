@@ -8,7 +8,7 @@ from icecream import ic
 from typing import Literal
 import re
 from db import crud
-
+import threading
 
 def ranking_list_collector(type: Literal['all', 'illust', "manga",
                                          "ugoira"] = 'illust'):
@@ -36,28 +36,30 @@ def pixiv_user_collector(user_id: int):
     next_qs = False
     # aapi = ByPassSniApi()
     # aapi.require_appapi_hosts()
-    try:
-        aapi = AppPixivAPI(proxies=configs.PROXIES)
-        aapi.set_accept_language("zh-cn")
-        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
-        username = aapi.user_detail(user_id)['user']['name']
-        json_response = aapi.user_illusts(user_id)
-        illusts: list = json_response['illusts']
-        next_qs = aapi.parse_qs(json_response.next_url)
-        while next_qs:
-            print("Requesting next page")
-            res = aapi.user_illusts(**next_qs)
-            illusts.extend(res['illusts'])
-            if res['next_url']:
-                next_qs = aapi.parse_qs(res['next_url'])
-            else:
-                next_qs = False
-    except Exception as e:
-        print(e)
-        print("Wait for 20s to retry.")
-        sleep(20)
-        return pixiv_user_collector(user_id)
-    for _ in range(20):
+    for retry in range(10):
+        try:
+            aapi = AppPixivAPI(proxies=configs.PROXIES)
+            aapi.set_accept_language("zh-cn")
+            aapi.auth(refresh_token=configs.REFRESH_TOKEN)
+            username = aapi.user_detail(user_id)['user']['name']
+            json_response = aapi.user_illusts(user_id)
+            illusts: list = json_response['illusts']
+            next_qs = aapi.parse_qs(json_response.next_url)
+            while next_qs:
+                print("Requesting next page")
+                res = aapi.user_illusts(**next_qs)
+                illusts.extend(res['illusts'])
+                if res['next_url']:
+                    next_qs = aapi.parse_qs(res['next_url'])
+                else:
+                    next_qs = False
+            break
+        except Exception as e:
+            print(e)
+            print(f"| UserCollector {threading.current_thread().name} | Wait for 20s to retry. {retry}")
+            sleep(20)
+            return pixiv_user_collector(user_id)
+    for retry in range(20):
         try:
             data = [{
                 "id": item['id'],
@@ -70,7 +72,7 @@ def pixiv_user_collector(user_id: int):
                 }
             } for item in illusts]
             print(f'Done. Total illusts: {len(data)}')
-            del aapi
+            del aapi, username, illusts, next_qs, json_response, res
             return data
         except KeyError as e:
             print(e)

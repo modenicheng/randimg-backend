@@ -124,9 +124,10 @@ def create_image_rebuild(image_data: dict):
 
         # Create author if author is not exist
         author_obj = db.query(models.Author).filter(
-            models.Author.name == image_data['author']['name'],
-            models.Author.platform_id == str(
-                image_data['author']['platform_id'])).first()
+            or_(
+                models.Author.name == image_data['author']['name'],
+                models.Author.platform_id == str(
+                    image_data['author']['platform_id']))).first()
         if not author_obj:
             author_data = image_data['author']
             new_author = models.Author(name=author_data['name'],
