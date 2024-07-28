@@ -12,7 +12,7 @@ from fastapi.responses import (
 )
 from datetime import datetime, timedelta, timezone
 from typing import Union, Literal
-
+import crawlers
 from fastapi.exceptions import HTTPException
 import random
 import os, sys
@@ -21,6 +21,7 @@ import uvicorn
 import json
 from typing import Annotated, Union
 from pydantic import BaseModel, Field
+import crawlers.manager
 from db import crud, models, schemas
 from db.crud import get_db
 from icecream import ic
@@ -34,6 +35,7 @@ from passlib.context import CryptContext
 from configs import *
 
 from fastapi.middleware.cors import CORSMiddleware
+import queue
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -48,6 +50,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+## INIT
+process_queue = queue.Queue()
+with get_db() as db:
+    db.query(models.Image).filter(models.Image.processing == True).update(
+        {'processing': False})
+    res = db.query(models.Image).filter(models.Image.processed == False,
+                                        models.Image.processing == False,
+                                        models.Image.downloaded == True).all()
+    for img in res:
+        process_queue.put(img)
 
 
 class TokenData(BaseModel):
@@ -128,9 +141,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def auth(token: str = ''):
-    ic(token)
     try:
-        user = get_current_user(token)
+        get_current_user(token)
         return True
     except ExpiredSignatureError as e:
         raise HTTPException(status_code=401, detail='token expired')
@@ -214,7 +226,6 @@ def get_image_list(authorization: Annotated[str, Header()] = None,
         desc = True if desc.lower() == 'true' else False
     except:
         pass
-    ic(desc)
     try:
         author = int(author)
     except:
@@ -270,9 +281,18 @@ async def get_crawler_status():
 
 @app.post('/crawler')
 def create_crawler(data: schemas.CreateCrawlerSchema):
-    if data.crawl_type == models.CrawlerType.USER:
-        ...
-    pass
+    with get_db() as db:
+        if data.crawl_type == models.CrawlerType.USER and data.target_user_id == None:
+            return HTTPException(status_code=400,
+                                 detail="target_user_id is required")
+        if data.crawl_type == models.CrawlerType.RANKING and (
+                data.target_end_date == None
+                or data.target_start_date == None):
+            return HTTPException(
+                status_code=400,
+                detail="target_end_date and target_start_date is required")
+        crawler = crud.create_crawler(data, db)
+        return crawler
 
 
 @app.get('/crawler/image')
@@ -284,8 +304,12 @@ def get_unprocessed_images(token: Annotated[str, Depends(oauth2_scheme)]):
 @app.get('/crawler/image-list')
 def get_unprocessed_images_list(token: Annotated[str, Depends(oauth2_scheme)]):
     if auth(token):
-        image = crud.get_unprocessed_images(ids=True)
-        return image
+        # image = crud.get_unprocessed_images(ids=True)
+        try:
+            image = process_queue.get_nowait()
+            return image
+        except:
+            return HTTPException(status_code=404, detail="No image found")
     else:
         return HTTPException(status_code=401, detail="Unauthorized")
 

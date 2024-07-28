@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from . import configs
 import os
 
-
 def get_downloaded_image_list():
     return [
         os.path.join(configs.IMAGE_DIR, i).split('/')[-1]
@@ -13,7 +12,7 @@ def get_downloaded_image_list():
     ][1:]
 
 
-def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=1):
+def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=0.7):
     # 打开图像并转换为RGB模式
     if type(image) == str:
         image = Image.open(image).convert('RGB')

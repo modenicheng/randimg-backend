@@ -74,10 +74,10 @@ class AdminSchema(BaseModel):
 
 
 class CreateCrawlerSchema(BaseModel):
-    id: Optional[int]
-    task_name: str
-    crawl_type: models.CrawlerType
-    target_user_id: Optional[str]
-    target_start_date: Optional[datetime]
-    target_end_date: Optional[datetime]
-    target_search_prompt: Optional[str]  # 搜索爬虫的tag列表，以 `,` 分割
+    id: Optional[int] = None
+    task_name: str = ''
+    crawl_type: models.CrawlerType = models.CrawlerType.USER
+    target_user_id: Optional[str] = None # 用户爬虫的id列表，以 `,` 分割
+    target_start_date: Optional[datetime] = None
+    target_end_date: Optional[datetime] = None
+    target_search_prompt: Optional[str] = None  # 搜索爬虫的tag列表，以 `,` 分割

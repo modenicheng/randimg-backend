@@ -559,7 +559,6 @@ def update_image(data: schemas.ImageManagementSchema, db: Session):
 def update_image_colors_by_image_path(image_path: str,
                                       data: dict) -> models.Image | None:
     with get_db() as db:
-        ic(image_path, data)
         image = db.query(models.Image).filter(
             models.Image.image_path == image_path).first()
         if image is not None:
@@ -574,10 +573,9 @@ def update_image_colors_by_image_path(image_path: str,
 
 def get_unprocessed_image_and_change_status():
     with get_db() as db:
-        image = db.query(
-            models.Image).filter(models.Image.processed == False,
-                                 models.Image.processing == False,
-                                 models.Image.downloaded == True).first()
+        image = db.query(models.Image).filter(
+            models.Image.processed == False, models.Image.processing == False,
+            models.Image.downloaded == True).first()
 
         if image == None:
             return None
@@ -596,3 +594,11 @@ def get_tags():
             "translated_name": tag.translated_name,
             "search_string": tag.name + '|' + str(tag.translated_name)
         } for tag in tags]
+
+
+def create_crawler(data: schemas.CreateCrawlerSchema, db: Session):
+    crawler = models.Crawler(**data.model_dump())
+    db.add(crawler)
+    db.commit()
+    db.refresh(crawler)
+    return crawler
