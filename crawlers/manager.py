@@ -5,14 +5,28 @@ from multiprocessing import Pool
 from icecream import ic
 from typing import Literal
 
+
 class Manager:
 
     def collect_illusts(self):
         collected_list = []
         return collected_list
 
+    def collector_threads(self, illusts: list):
+        with ThreadPoolExecutor(
+                max_workers=configs.COLLECTOR_NUM) as collector_pool:
+            collect_tasks = [
+                collector_pool.submit(collector.pixiv_illusts_collector,
+                                      illust) for illust in illusts
+            ]
+            del illusts
+
+            collected_list = [
+                future.result() for future in as_completed(collect_tasks)
+            ]
+        return collected_list
+
     def crawl(self) -> None:
-        print(f'Start to crawl {self.user_id}')
 
         collected_list = self.collect_illusts()
 
@@ -53,24 +67,54 @@ class UserCrawlerManager(Manager):
 
     def collect_illusts(self):
         illusts = collector.pixiv_user_collector(self.user_id)
-        with ThreadPoolExecutor(
-                max_workers=configs.COLLECTOR_NUM) as collector_pool:
-            collect_tasks = [
-                collector_pool.submit(collector.pixiv_illusts_collector,
-                                      illust) for illust in illusts
-            ]
-            del illusts
-
-            collected_list = [
-                future.result() for future in as_completed(collect_tasks)
-            ]
+        collected_list = self.collector_threads(illusts)
+        del illusts
         return collected_list
 
+
+class BookmarkCrawlerManager(Manager):
+
+    def __init__(self, user_id: int) -> None:
+        self.user_id = user_id
+        super().__init__()
+
+    def collect_illusts(self):
+        illusts = collector.pixiv_user_bookmarks_collector(self.user_id)
+        collected_list = self.collector_threads(illusts)
+        del illusts
+        return collected_list
+
+
 class RankingCrawlerManager(Manager):
-    def __init__(self, type: Literal['all', 'illust', "manga",
-                                         "ugoira"] = 'illust'):
+
+    def __init__(self,
+                 type: Literal['all', 'illust', "manga", "ugoira"] = 'illust'):
         pass
-    
+
     def collect_illusts(self):
         pass
-    
+
+
+class FollowingUserCrawlerManager(Manager):
+
+    def __init__(self, user_id: int | str) -> None:
+        self.user_id = int(user_id)
+        super().__init__()
+
+    def collect_illusts(self):
+        users = collector.following_users_collector(self.user_id)
+        print(f"Total {len(users)} users to be crawled. \n {users}")
+        with ThreadPoolExecutor(
+                max_workers=configs.COLLECTOR_NUM) as collector_pool:
+            illusts_tasks = [
+                collector_pool.submit(collector.pixiv_user_collector, user)
+                for user in users
+            ]
+            del users
+            illusts = [
+                future.result() for future in as_completed(illusts_tasks)
+            ]
+
+        collected_list = self.collector_threads(illusts)
+        del illusts
+        return collected_list

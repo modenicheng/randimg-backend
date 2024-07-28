@@ -78,6 +78,49 @@ def pixiv_user_collector(user_id: int):
             sleep(20)
 
 
+def pixiv_user_bookmarks_collector(user_id: int, r=0):
+    try:
+        aapi = AppPixivAPI(proxies=configs.PROXIES)
+        aapi.set_accept_language("zh-cn")
+        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
+        username = aapi.user_detail(user_id)['user']['name']
+        json_response = aapi.user_bookmarks_illust(user_id)
+        illusts: list = json_response['illusts']
+        next_url = aapi.parse_qs(json_response['next_url'])
+        while next_url:
+            print("Requesting next page")
+            res = aapi.user_bookmarks_illust(**next_url)
+            illusts.extend(res['illusts'])
+            if res['next_url']:
+                next_url = aapi.parse_qs(res['next_url'])
+            else:
+                next_url = False
+    except Exception as e:
+        print(e)
+        print("Wait for 20s to retry.")
+        sleep(20)
+        return pixiv_user_collector(user_id)
+    for _ in range(20):
+        try:
+            data = [{
+                "id": item['id'],
+                "title": item['title'],
+                "tags": item['tags'],
+                "author": {
+                    "name": username,
+                    "platform_id": item['user']['id'],
+                    "platform": "pixiv",
+                }
+            } for item in illusts]
+            print(f'Done. Total illusts: {len(data)}')
+            del aapi
+            return data
+        except KeyError as e:
+            print(e)
+            print("Reach the speed limit. wait for 20s to retry.")
+            sleep(20)
+
+
 def pixiv_illusts_collector(illust: dict, r=0):
     if crud.is_illust_downloaded(illust.get('id')):
         print(f"Illust {illust.get('id')} has already been collected. Skip.")
@@ -128,3 +171,37 @@ def pixiv_illusts_collector(illust: dict, r=0):
     else:
         sleep(5)
         return pixiv_illusts_collector(illust_id, r=r + 1)
+
+
+def following_users_collector(user_id: int | str):
+    """get following users of user_id
+
+    Args:
+        user_id (int | str): user_id
+
+    Returns:
+        List: A list of user ids
+    """
+    try:
+        user_list = []
+        aapi = AppPixivAPI(proxies=configs.PROXIES)
+        aapi.set_accept_language("zh-cn")
+        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
+        json_response = aapi.user_following(user_id)
+        user_list.extend(json_response['user_previews'])
+        next_qs = aapi.parse_qs(json_response['next_url'])
+        while next_qs:
+            print("Requesting next page")
+            res = aapi.user_following(**next_qs)
+            user_list.extend(res['user_previews'])
+            if res['next_url']:
+                next_qs = aapi.parse_qs(res['next_url'])
+            else:
+                next_qs = False
+        return [item['user']['id'] for item in user_list]
+    except Exception as e:
+        print(e)
+        print("Wait for 20s to retry.")
+        sleep(20)
+        return following_users_collector(user_id)
+    
