@@ -59,6 +59,11 @@ def pixiv_user_collector(user_id: int):
             print(f"| UserCollector {threading.current_thread().name} | Wait for 20s to retry. {retry}")
             sleep(20)
             return pixiv_user_collector(user_id)
+        finally:
+            try:
+                del json_response, aapi
+            except:
+                pass
     for retry in range(20):
         try:
             data = [{
