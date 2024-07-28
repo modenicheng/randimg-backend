@@ -72,7 +72,7 @@ def pixiv_user_collector(user_id: int):
                 }
             } for item in illusts]
             print(f'Done. Total illusts: {len(data)}')
-            del aapi, username, illusts, next_qs, json_response, res
+            del aapi, username, illusts, next_qs, json_response
             return data
         except KeyError as e:
             print(e)
