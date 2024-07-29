@@ -7,8 +7,8 @@ import crawlers
 from dogecloud import oss
 import configs
 
+
 def func(d: dict):
-    # crawlers.downloader.download_pixiv_image_file(d)
     crawlers.uploader(configs.IMAGE_DIR + '/' + d['image_path'])
 
 
@@ -17,6 +17,7 @@ with ThreadPoolExecutor(max_workers=10) as executor:
 
     tasks = [
         executor.submit(func, d, storage)
-        for d in crud.get_not_downloaded_illusts()
+        for d in crud.get_not_uploaded_illusts()
     ]
-    r = [t.result() for t in as_completed(tasks)]
+    for t in as_completed(tasks):
+        print(t.result())
