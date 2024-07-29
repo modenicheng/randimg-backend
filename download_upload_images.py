@@ -10,6 +10,7 @@ def func(d: dict, storage: oss.OSS):
     crawlers.downloader.download_pixiv_image_file(d)
     print(d['image_path'], 'uploading')
     storage.upload_image_file(d['image_path'], d['image_path'])
+    crud.uploaded_image(d['image_path'])
     return d
 
 

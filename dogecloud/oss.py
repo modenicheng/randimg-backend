@@ -136,7 +136,7 @@ class OSS:
     def get_file_list(self, continue_file='', prefix='', limit=200):
         data = []
         params = {
-            'prefix': cache.get('bucket') + '/' + prefix,
+            'prefix': cache.get('s3Bucket') + '/' + prefix,
         }
         url = f"/oss/file/list.json?bucket=randimg&prefix={params['prefix']}&continue={continue_file}&limit={limit}"
         sign_str = url + ("\n" + "")
