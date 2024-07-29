@@ -1,17 +1,15 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import crawlers.downloader
+import crawlers.uploader
 from db import crud
 import requests
 import crawlers
 from dogecloud import oss
+import configs
 
-
-def func(d: dict, storage: oss.OSS):
-    crawlers.downloader.download_pixiv_image_file(d)
-    print(d['image_path'], 'uploading')
-    storage.upload_image_file(d['image_path'], d['image_path'])
-    crud.uploaded_image(d['image_path'])
-    return d
+def func(d: dict):
+    # crawlers.downloader.download_pixiv_image_file(d)
+    crawlers.uploader(configs.IMAGE_DIR + '/' + d['image_path'])
 
 
 storage = oss.OSS()
