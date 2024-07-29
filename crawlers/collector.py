@@ -89,13 +89,14 @@ def pixiv_user_collector(aapi: AppPixivAPI, user_id: int):
 
 def pixiv_user_bookmarks_collector(aapi: AppPixivAPI, user_id: int, r=0):
     try:
+        print(f'| {threading.current_thread().name} {user_id} {username} | ')
         username = aapi.user_detail(user_id)['user']['name']
         json_response = aapi.user_bookmarks_illust(user_id)
         illusts: list = json_response['illusts']
         next_url = aapi.parse_qs(json_response['next_url'])
         while next_url:
             print(
-                f"| {user_id} {threading.current_thread().name} | Requesting next page"
+                f"| {threading.current_thread().name} {user_id} {username} | Requesting next page"
             )
             res = aapi.user_bookmarks_illust(**next_url)
             illusts.extend(res['illusts'])
@@ -109,7 +110,7 @@ def pixiv_user_bookmarks_collector(aapi: AppPixivAPI, user_id: int, r=0):
                     print(e, f"| {user_id} {threading.current_thread().name} | Error deleting aapi at line 108")
     except Exception as e:
         print(e)
-        print("Wait for 20s to retry.")
+        print("| {threading.current_thread().name} {user_id} {username} | Wait for 20s to retry.")
         sleep(20)
         return pixiv_user_bookmarks_collector(aapi, user_id)
     for _ in range(20):
@@ -124,11 +125,11 @@ def pixiv_user_bookmarks_collector(aapi: AppPixivAPI, user_id: int, r=0):
                     "platform": "pixiv",
                 }
             } for item in illusts]
-            print(f'Done. Total illusts: {len(data)}')
+            print(f'| {threading.current_thread().name} {user_id} {username} | Done. Total illusts: {len(data)}')
             return data
         except KeyError as e:
             print(e)
-            print("Reach the speed limit. wait for 20s to retry.")
+            print("| {threading.current_thread().name} {user_id} {username} | Reach the speed limit. wait for 20s to retry.")
             sleep(20)
 
 
@@ -157,8 +158,7 @@ def pixiv_illusts_collector(illust: dict, r=0):
     except KeyboardInterrupt:
         return
     except Exception as e:
-        res.close()
-        print(f"Request {illust_id} failed. Retrying...\nERROR: {e}")
+        print(f"| {threading.current_thread().name} | Request {illust_id} failed. Retrying...\nERROR: {e}")
         sleep(5)
         return pixiv_illusts_collector(illust, r=r + 1)
 
@@ -180,7 +180,7 @@ def pixiv_illusts_collector(illust: dict, r=0):
         del data
         for image in constructor:
             crud.create_image_rebuild(image)
-            print(f"Create image {image['image_path']} successfully.")
+            print(f"| {threading.current_thread().name} | Create image {image['image_path']} successfully.")
         return constructor
     elif res.status_code == 401:
         print("Cookies expired, please login again.")
