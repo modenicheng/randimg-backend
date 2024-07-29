@@ -5,4 +5,5 @@ from . import downloader, utils, configs, manager, uploader, collector, processo
 path = configs.IMAGE_DIR
 
 if __name__ == '__main__':
-    manager.FollowingUserCrawlerManager(69776150).crawl()
+    c = manager.FollowingUserCrawlerManager(69776150)
+    c.crawl()

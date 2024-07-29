@@ -39,7 +39,7 @@ def download_pixiv_image_file(image: dict, r=0):
         print(
             f'| {threading.current_thread().name} | Downloaded image {image_name}'
         )
-        del res
+        res.close()
         return image
     except FileNotFoundError as e:
         ic(e)

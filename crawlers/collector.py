@@ -10,7 +10,8 @@ import re
 from db import crud
 import threading
 
-def ranking_list_collector(type: Literal['all', 'illust', "manga",
+
+def ranking_list_collector(aapi: AppPixivAPI, type: Literal['all', 'illust', "manga",
                                          "ugoira"] = 'illust'):
     aapi = AppPixivAPI()
     aapi.set_accept_language("zh-cn")
@@ -20,7 +21,7 @@ def ranking_list_collector(type: Literal['all', 'illust', "manga",
     ic(json_result["illusts"][0])
 
 
-def pixiv_user_collector(user_id: int):
+def pixiv_user_collector(aapi: AppPixivAPI, user_id: int):
     """Get user's illusts
 
     Args:
@@ -38,9 +39,6 @@ def pixiv_user_collector(user_id: int):
     # aapi.require_appapi_hosts()
     for retry in range(10):
         try:
-            aapi = AppPixivAPI(proxies=configs.PROXIES)
-            aapi.set_accept_language("zh-cn")
-            aapi.auth(refresh_token=configs.REFRESH_TOKEN)
             username = aapi.user_detail(user_id)['user']['name']
             json_response = aapi.user_illusts(user_id)
             illusts: list = json_response['illusts']
@@ -56,9 +54,11 @@ def pixiv_user_collector(user_id: int):
             break
         except Exception as e:
             print(e)
-            print(f"| UserCollector {threading.current_thread().name} | Wait for 20s to retry. {retry}")
+            print(
+                f"| UserCollector {threading.current_thread().name} | Wait for 20s to retry. {retry}"
+            )
             sleep(20)
-            return pixiv_user_collector(user_id)
+            return pixiv_user_collector(aapi, user_id)
         finally:
             try:
                 del json_response, aapi
@@ -87,17 +87,16 @@ def pixiv_user_collector(user_id: int):
             sleep(20)
 
 
-def pixiv_user_bookmarks_collector(user_id: int, r=0):
+def pixiv_user_bookmarks_collector(aapi: AppPixivAPI, user_id: int, r=0):
     try:
-        aapi = AppPixivAPI(proxies=configs.PROXIES)
-        aapi.set_accept_language("zh-cn")
-        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
         username = aapi.user_detail(user_id)['user']['name']
         json_response = aapi.user_bookmarks_illust(user_id)
         illusts: list = json_response['illusts']
         next_url = aapi.parse_qs(json_response['next_url'])
         while next_url:
-            print("Requesting next page")
+            print(
+                f"| {user_id} {threading.current_thread().name} | Requesting next page"
+            )
             res = aapi.user_bookmarks_illust(**next_url)
             illusts.extend(res['illusts'])
             if res['next_url']:
@@ -107,12 +106,12 @@ def pixiv_user_bookmarks_collector(user_id: int, r=0):
                 try:
                     del aapi
                 except Exception as e:
-                    print(e, "Error deleting aapi at line 108")
+                    print(e, f"| {user_id} {threading.current_thread().name} | Error deleting aapi at line 108")
     except Exception as e:
         print(e)
         print("Wait for 20s to retry.")
         sleep(20)
-        return pixiv_user_collector(user_id)
+        return pixiv_user_bookmarks_collector(aapi, user_id)
     for _ in range(20):
         try:
             data = [{
@@ -147,7 +146,7 @@ def pixiv_illusts_collector(illust: dict, r=0):
         return
     url = f"https://www.pixiv.net/ajax/illust/{illust_id}/pages?lang=zh"
     try:
-        print(f"Requesting image list of {illust_id}")
+        print(f"| {threading.current_thread().name} | Requesting image list of {illust_id}")
         res = requests.get(url,
                            headers={
                                "Referer":
@@ -158,13 +157,15 @@ def pixiv_illusts_collector(illust: dict, r=0):
     except KeyboardInterrupt:
         return
     except Exception as e:
+        res.close()
         print(f"Request {illust_id} failed. Retrying...\nERROR: {e}")
-        del res
         sleep(5)
         return pixiv_illusts_collector(illust, r=r + 1)
 
     if res.status_code == 200:
         data = res.json()['body']
+        res.close()
+        del res
         constructor = [{
             'height': image['height'],
             'width': image['width'],
@@ -176,16 +177,25 @@ def pixiv_illusts_collector(illust: dict, r=0):
             "source_url": f"https://www.pixiv.net/artworks/{illust_id}",
             **illust
         } for image in data]
+        del data
         for image in constructor:
             crud.create_image_rebuild(image)
             print(f"Create image {image['image_path']} successfully.")
         return constructor
+    elif res.status_code == 401:
+        print("Cookies expired, please login again.")
     else:
-        sleep(5)
-        return pixiv_illusts_collector(illust_id, r=r + 1)
+        try:
+            res.close()
+        except Exception as e:
+            ic(e)
+        finally:
+            print(f'| {threading.current_thread().name} | Failed to get illust {illust_id}. Retrying... {r} code: {res.status_code}')
+            sleep(5)
+            return pixiv_illusts_collector(illust_id, r=r + 1)
 
 
-def following_users_collector(user_id: int | str):
+def following_users_collector(aapi: AppPixivAPI, user_id: int | str):
     """get following users of user_id
 
     Args:
@@ -196,14 +206,12 @@ def following_users_collector(user_id: int | str):
     """
     try:
         user_list = []
-        aapi = AppPixivAPI(proxies=configs.PROXIES)
-        aapi.set_accept_language("zh-cn")
-        aapi.auth(refresh_token=configs.REFRESH_TOKEN)
         json_response = aapi.user_following(user_id)
         user_list.extend(json_response['user_previews'])
         next_qs = aapi.parse_qs(json_response['next_url'])
         while next_qs:
-            print(f"| {threading.current_thread().name} | Requesting next page")
+            print(
+                f"| {threading.current_thread().name} | Requesting next page")
             res = aapi.user_following(**next_qs)
             user_list.extend(res['user_previews'])
             if res['next_url']:
@@ -215,5 +223,4 @@ def following_users_collector(user_id: int | str):
         print(e)
         print("Wait for 20s to retry.")
         sleep(20)
-        return following_users_collector(user_id)
-    
+        return following_users_collector(aapi, user_id)

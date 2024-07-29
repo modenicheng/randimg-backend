@@ -4,6 +4,7 @@ from . import configs, collector, uploader, downloader, processor
 from multiprocessing import Pool
 from icecream import ic
 from typing import Literal
+from pixivpy3 import AppPixivAPI
 
 
 class Manager:
@@ -40,7 +41,7 @@ class Manager:
                 max_workers=configs.DOWNLOADER_NUM) as downloader_pool:
             download_tasks = [
                 downloader_pool.submit(downloader.download_pixiv_image_file,
-                                       illust) for illust in images
+                                       self.aapi, illust) for illust in images
             ]
             del images
 
@@ -64,6 +65,9 @@ class UserCrawlerManager(Manager):
 
     def __init__(self, user_id: int) -> None:
         self.user_id = user_id
+        self.aapi = AppPixivAPI(proxies=configs.PROXIES)
+        self.aapi.set_accept_language("zh-cn")
+        self.aapi.auth(refresh_token=configs.REFRESH_TOKEN)
 
     def collect_illusts(self):
         illusts = collector.pixiv_user_collector(self.user_id)
@@ -77,6 +81,9 @@ class BookmarkCrawlerManager(Manager):
     def __init__(self, user_id: int) -> None:
         self.user_id = user_id
         super().__init__()
+        self.aapi = AppPixivAPI(proxies=configs.PROXIES)
+        self.aapi.set_accept_language("zh-cn")
+        self.aapi.auth(refresh_token=configs.REFRESH_TOKEN)
 
     def collect_illusts(self):
         illusts = collector.pixiv_user_bookmarks_collector(self.user_id)
@@ -99,16 +106,17 @@ class FollowingUserCrawlerManager(Manager):
 
     def __init__(self, user_id: int | str) -> None:
         self.user_id = int(user_id)
-        super().__init__()
+        self.aapi = AppPixivAPI(proxies=configs.PROXIES)
+        self.aapi.set_accept_language("zh-cn")
+        self.aapi.auth(refresh_token=configs.REFRESH_TOKEN)
 
     def collect_illusts(self):
-        users = collector.following_users_collector(self.user_id)
+        users = collector.following_users_collector(self.aapi, self.user_id)
         print(f"Total {len(users)} users to be crawled. \n {users}")
-        with ThreadPoolExecutor(
-                max_workers=2) as collector_pool:
+        with ThreadPoolExecutor(max_workers=2) as collector_pool:
             illusts_tasks = [
-                collector_pool.submit(collector.pixiv_user_collector, user)
-                for user in users
+                collector_pool.submit(collector.pixiv_user_collector,
+                                      self.aapi, user) for user in users
             ]
             del users
             ic(illusts_tasks)
