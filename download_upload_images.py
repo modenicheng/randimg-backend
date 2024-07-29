@@ -15,7 +15,7 @@ storage = oss.OSS()
 with ThreadPoolExecutor(max_workers=10) as executor:
 
     tasks = [
-        executor.submit(func, d, storage)
+        executor.submit(func, d)
         for d in crud.get_not_downloaded_illusts()
     ]
     for t in as_completed(tasks):
