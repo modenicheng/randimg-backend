@@ -111,9 +111,10 @@ class FollowingUserCrawlerManager(Manager):
                 for user in users
             ]
             del users
-            illusts = [
-                future.result() for future in as_completed(illusts_tasks)
-            ]
+            ic(illusts_tasks)
+            illusts = []
+            for future in as_completed(illusts_tasks):
+                illusts.extend(future.result())
 
         collected_list = self.collector_threads(illusts)
         del illusts

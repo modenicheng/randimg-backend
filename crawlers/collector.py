@@ -104,6 +104,10 @@ def pixiv_user_bookmarks_collector(user_id: int, r=0):
                 next_url = aapi.parse_qs(res['next_url'])
             else:
                 next_url = False
+                try:
+                    del aapi
+                except Exception as e:
+                    print(e, "Error deleting aapi at line 108")
     except Exception as e:
         print(e)
         print("Wait for 20s to retry.")
@@ -122,7 +126,6 @@ def pixiv_user_bookmarks_collector(user_id: int, r=0):
                 }
             } for item in illusts]
             print(f'Done. Total illusts: {len(data)}')
-            del aapi
             return data
         except KeyError as e:
             print(e)
@@ -200,7 +203,7 @@ def following_users_collector(user_id: int | str):
         user_list.extend(json_response['user_previews'])
         next_qs = aapi.parse_qs(json_response['next_url'])
         while next_qs:
-            print("Requesting next page")
+            print(f"| {threading.current_thread().name} | Requesting next page")
             res = aapi.user_following(**next_qs)
             user_list.extend(res['user_previews'])
             if res['next_url']:
