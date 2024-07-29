@@ -42,9 +42,9 @@ def worker():
                            headers=configs.HEADERS,
                            json=data)
         return
-    finally:
-        res.close()
+        
     image = Image.open(BytesIO(res.content)).convert('RGB')
+    res.close()
     colors, primary = utils.extract_theme_colors(image, scale=0.3)
     data = {
         'id': image_id,
