@@ -165,8 +165,17 @@ async def login_for_access_token(
 
 
 @app.get("/image/{image_id}")
-def get_image(image_id: int, format: str = 'json', local: bool = False):
-    data: dict = crud.get_image_by_id(image_id)
+def get_image(image_id: int,
+              format: str = 'json',
+              local: bool = False,
+              authorization: Annotated[str, Header()] = None):
+    if authorization:
+        token = authorization.split(' ')[1]
+        if auth(token):
+            is_admin = True
+        else:
+            return HTTPException(status_code=401)
+    data: dict | None = crud.get_image_by_id(image_id, is_admin=is_admin)
     if data == None:
         return JSONResponse(content={'error': 'image not found'},
                             status_code=404)

@@ -359,7 +359,7 @@ def get_illust_images(illust_id: int) -> list:
         } for image in images]
 
 
-def get_image_by_id(image_id: int):
+def get_image_by_id(image_id: int, is_admin: bool = False):
     with get_db() as db:
         image = db.query(models.Image).\
             join(models.image_tag_association).\
@@ -368,6 +368,8 @@ def get_image_by_id(image_id: int):
             options(joinedload(models.Image.author)).\
             first()
         if image == None:
+            return None
+        if image.accessable == False and not is_admin:
             return None
         data: schemas.ImageSchema = {
             'id':

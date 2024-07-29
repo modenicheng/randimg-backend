@@ -7,16 +7,16 @@ from dogecloud import oss
 import configs
 
 
-def func(d: dict):
-    crawlers.uploader.upload_image_file(configs.IMAGE_DIR + '/' + d['image_path'],
-                      d['image_path'])
+def func(d: dict, storage: oss.OSS):
+    crawlers.uploader.upload_image(configs.IMAGE_DIR + '/' + d['image_path'],
+                      d['image_path'], storage)
 
 
 storage = oss.OSS()
-with ThreadPoolExecutor(max_workers=10) as executor:
+with ThreadPoolExecutor(max_workers=20) as executor:
 
     tasks = [
-        executor.submit(func, d)
+        executor.submit(func, d, storage)
         for d in crud.get_not_uploaded_illusts()
     ]
     for t in as_completed(tasks):
