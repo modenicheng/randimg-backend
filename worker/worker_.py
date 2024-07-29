@@ -24,9 +24,10 @@ def worker():
         "processed": False,
         "processing": True,
     }
-    requests.api.patch(configs.SERVER + 'image/' + str(image_id),
+    p = requests.api.patch(configs.SERVER + 'image/' + str(image_id),
                        headers=configs.HEADERS,
                        json=data)
+    p.close()
     print(f'Start to process image {image_id}')
     res = requests.api.get(configs.SERVER + 'image/' + str(image_id),
                            params={'local': 'true'},
@@ -35,13 +36,14 @@ def worker():
     try:
         assert res.status_code == 200
     except AssertionError as e:
-        data = {'id': image_id, 'processing': False}
+        data = {'id': image_id, 'processing': False, 'processed': False}
         print(f'Failed to fetch image {image_id}, {res.status_code} \n {res.content}')
-        requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+        requests.api.post(configs.SERVER + 'crawler/image',
                            headers=configs.HEADERS,
                            json=data)
-        sleep(2)
         return
+    finally:
+        res.close()
     image = Image.open(BytesIO(res.content)).convert('RGB')
     colors, primary = utils.extract_theme_colors(image, scale=0.3)
     data = {
@@ -54,13 +56,12 @@ def worker():
         "processed": True,
         "processing": False,
     }
-    requests.api.patch(configs.SERVER + '/image/' + str(image_id),
+    p = requests.api.patch(configs.SERVER + '/image/' + str(image_id),
                        headers=configs.HEADERS,
                        json=data)
-    del image
+    p.close()
+    del image, p
     print(f'Seccessfully processed image {image_id}')
-
-
 def loop():
     while True:
         try:

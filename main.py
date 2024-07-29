@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body, Depends, status, Header
+from fastapi import FastAPI, Body, Depends, status, Header, Request
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -36,6 +36,7 @@ from configs import *
 
 from fastapi.middleware.cors import CORSMiddleware
 import queue
+from collections import deque
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -50,17 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-## INIT
-process_queue = queue.Queue()
-with get_db() as db:
-    db.query(models.Image).filter(models.Image.processing == True).update(
-        {'processing': False})
-    res = db.query(models.Image).filter(models.Image.processed == False,
-                                        models.Image.processing == False,
-                                        models.Image.downloaded == True).all()
-    for img in res:
-        process_queue.put(img)
 
 
 class TokenData(BaseModel):
@@ -174,7 +164,7 @@ def get_image(image_id: int,
         if auth(token):
             is_admin = True
         else:
-            return HTTPException(status_code=401)
+            raise HTTPException(status_code=401)
     data: dict | None = crud.get_image_by_id(image_id, is_admin=is_admin)
     if data == None:
         return JSONResponse(content={'error': 'image not found'},
@@ -183,9 +173,9 @@ def get_image(image_id: int,
         try:
             return FileResponse('./images/' + data.get('image_path'))
         except FileNotFoundError:
-            return HTTPException(status_code=404, detail='image not found')
+            raise HTTPException(status_code=404, detail='image not found')
         except:
-            return HTTPException(status_code=404, detail='image not found')
+            raise HTTPException(status_code=404, detail='image not found')
     if format == 'json':
         return data
     elif format == 'image':
@@ -271,11 +261,13 @@ async def get_tags():
 @app.patch('/image/{image_id}')
 def update_image(image_id: int, image: schemas.ImageManagementSchema,
                  token: Annotated[str, Depends(oauth2_scheme)]):
-
-    update_data = image.model_dump(exclude_unset=True)
-    with get_db() as db:
-        image_orm = crud.update_image(update_data, db)
-        return image_orm
+    if auth(token):
+        update_data = image.model_dump(exclude_unset=True)
+        with get_db() as db:
+            image_orm = crud.update_image(update_data, db)
+            return image_orm
+    else:
+        raise HTTPException(401)
 
 
 @app.delete('/image/{image_id}')
@@ -292,35 +284,63 @@ async def get_crawler_status():
 def create_crawler(data: schemas.CreateCrawlerSchema):
     with get_db() as db:
         if data.crawl_type == models.CrawlerType.USER and data.target_user_id == None:
-            return HTTPException(status_code=400,
+            raise HTTPException(status_code=400,
                                  detail="target_user_id is required")
         if data.crawl_type == models.CrawlerType.RANKING and (
                 data.target_end_date == None
                 or data.target_start_date == None):
-            return HTTPException(
+            raise HTTPException(
                 status_code=400,
                 detail="target_end_date and target_start_date is required")
         crawler = crud.create_crawler(data, db)
         return crawler
 
 
+process_queue = deque()
+
+
 @app.get('/crawler/image')
-def get_unprocessed_images(token: Annotated[str, Depends(oauth2_scheme)]):
-    image = crud.get_unprocessed_image_and_change_status()
-    return image
-
-
-@app.get('/crawler/image-list')
-def get_unprocessed_images_list(token: Annotated[str, Depends(oauth2_scheme)]):
+def get_unprocessed_images_list(token: Annotated[str,
+                                                 Depends(oauth2_scheme)],
+                                init: bool = False):
+    global process_queue
+    
     if auth(token):
-        # image = crud.get_unprocessed_images(ids=True)
-        try:
-            image = process_queue.get_nowait()
-            return image
-        except:
-            return HTTPException(status_code=404, detail="No image found")
+        if init:
+            images = crud.get_unprocessed_images(ids=True)
+            process_queue = deque()
+            [process_queue.append(i) for i in images]
+            ic(process_queue.__len__())
+
+            return {'status': 'ok', 'count': process_queue.__len__()}
+        else:
+
+            try:
+                image = process_queue.pop()
+                with get_db() as db:
+                    crud.update_image({**image, 'processing': True}, db)
+                    
+                return image
+            except Exception as e:
+                ic(e)
+                raise HTTPException(
+                    status_code=404,
+                    detail="No image found. Please try init first.")
     else:
-        return HTTPException(status_code=401, detail="Unauthorized")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+@app.post('/crawler/image')
+async def error_processing_image(token: Annotated[str, Depends(oauth2_scheme)],
+                           request: Request):
+    global process_queue
+    with get_db() as db:
+        try:
+            data = await request.json()
+            process_queue.appendleft(data.get('id'))
+            return crud.update_image(data, db)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=e)
 
 
 if __name__ == '__main__':
