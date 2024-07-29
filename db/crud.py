@@ -603,3 +603,9 @@ def create_crawler(data: schemas.CreateCrawlerSchema, db: Session):
     db.commit()
     db.refresh(crawler)
     return crawler
+
+
+def get_not_downloaded_illusts():
+    with get_db() as db:
+        l = db.query(models.Image).filter(models.Image.downloaded == False).all()
+        return [{'id': i.id, 'url': i.source_image_url, 'image_path': i.image_path} for i in l]
