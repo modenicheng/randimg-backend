@@ -5,6 +5,8 @@ from PIL import Image
 from io import BytesIO
 from time import sleep
 import random
+import numpy as np
+import cv2
 
 
 def worker():
@@ -25,8 +27,8 @@ def worker():
         "processing": True,
     }
     p = requests.api.patch(configs.SERVER + 'image/' + str(image_id),
-                       headers=configs.HEADERS,
-                       json=data)
+                           headers=configs.HEADERS,
+                           json=data)
     p.close()
     print(f'Start to process image {image_id}')
     res = requests.api.get(configs.SERVER + 'image/' + str(image_id),
@@ -37,12 +39,14 @@ def worker():
         assert res.status_code == 200
     except AssertionError as e:
         data = {'id': image_id, 'processing': False, 'processed': False}
-        print(f'Failed to fetch image {image_id}, {res.status_code} \n {res.content}')
+        print(
+            f'Failed to fetch image {image_id}, {res.status_code} \n {res.content}'
+        )
         requests.api.post(configs.SERVER + 'crawler/image',
-                           headers=configs.HEADERS,
-                           json=data)
+                          headers=configs.HEADERS,
+                          json=data)
         return
-        
+
     image = Image.open(BytesIO(res.content)).convert('RGB')
     res.close()
     colors, primary = utils.extract_theme_colors(image, scale=0.3)
@@ -57,14 +61,53 @@ def worker():
         "processing": False,
     }
     p = requests.api.patch(configs.SERVER + '/image/' + str(image_id),
-                       headers=configs.HEADERS,
-                       json=data)
+                           headers=configs.HEADERS,
+                           json=data)
     p.close()
     del image, p
     print(f'Seccessfully processed image {image_id}')
+
+
 def loop():
     while True:
         try:
-            worker()
+            worker_2()
         except Exception as e:
+            print('Error in worker', e)
+
+
+def worker_2():
+    try:
+        with requests.session() as s:
+            res = s.get(configs.SERVER + '/adjust-accessible',
+                        headers=configs.HEADERS)
+            if res.status_code != 200:
+                print('Error in worker_2', res.text)
+                if res.json().get('detail') == "pop from an empty deque":
+                    exit()
+                return
+            id = res.json()['id']
+            image_path = res.json()['image_path']
+            print(f'Start to judge accessible of image {id} {image_path}')
+            img_res = s.get(configs.SERVER + f'/image/{id}',
+                            params={'local': 'true'},
+                            stream=True,
+                            headers=configs.HEADERS)
+            image = np.asarray(bytearray(img_res.content), dtype="uint8")
+        data = {"id": id, "accessable": utils.is_blank_background(image)}
+        print('Done.', data)
+        print('Uploading to server...')
+        with requests.session() as s:
+            res = s.patch(configs.SERVER + '/image/' + str(id),
+                         json=data, headers=configs.HEADERS)
+    except Exception as e:
+        ic(e)
+
+
+def loop_2():
+    while True:
+        try:
+            worker_2()
+        except Exception as e:
+            ic(e)
             print('Error in worker', e)

@@ -4,6 +4,9 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from . import configs
 import os
+import cv2
+
+from icecream import ic
 
 def get_downloaded_image_list():
     return [
@@ -12,7 +15,7 @@ def get_downloaded_image_list():
     ][1:]
 
 
-def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=0.7):
+def get_dominant_colors(image: Image.Image | str, num_colors=10, scale=0.5):
     # 打开图像并转换为RGB模式
     if type(image) == str:
         image = Image.open(image).convert('RGB')
@@ -84,3 +87,31 @@ def phash(img_path: str):
 
 def hash_similarity(hash1: imagehash.ImageHash, hash2: imagehash.ImageHash):
     return 1 - (hash1 - hash2) / len(hash1.hash)**2
+
+
+def get_dominant_colors_v2(file_path: str, scale: float = 0.5, num_colors: int = 10):
+    image: Image = Image.open(file_path).convert('RGB')
+    image = image.resize(
+        (int(image.width * scale), int(image.height * scale)))
+    result = image.convert('P', palette=Image.Palette.ADAPTIVE, colors=num_colors)
+    result = result.convert('RGB')
+    ic(result)
+
+def is_blank_background(file, scale_factor: float = 0.5):
+    if type(file) == str:
+        try:
+            image = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
+        except FileNotFoundError:
+            print('File not exist.')
+            return
+    else:
+        image = cv2.imdecode(file, cv2.IMREAD_GRAYSCALE)
+    image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
+    image = cv2.GaussianBlur(image, (5, 5), 0)
+    total_pix = image.shape[0] * image.shape[1]
+    white_area_ratio = np.sum(image >= 210) / total_pix
+    black_area_ratio = np.sum(image <= 25) / total_pix
+    if white_area_ratio >= 0.55 or black_area_ratio >= 0.3:
+        return True
+    else:
+        return False

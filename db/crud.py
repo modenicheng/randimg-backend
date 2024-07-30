@@ -421,11 +421,24 @@ def get_image_list(
     only_ids: bool = False,
     accessable: Literal[True, False, 'all'] = 'all'
 ) -> list[models.Image] | list[dict]:
-    """
-    :params:
-        :author      Either id or name could be recognized. Fuzzy when using name.
-        :tags        Use `,` to split.
-        :full_list   Equally using `limit=None`
+    """获取图片列表
+
+    Args:
+        offset (int, optional): offset of list. Defaults to 0.
+        limit (int, optional): limit of list. Defaults to 30.
+        desc (bool, optional): 是否倒序排列. Defaults to True.
+        ratio_floor (float, optional): 图片宽高比下限. Defaults to 0.
+        ratio_ceil (float, optional): 图片宽高比上限. Defaults to 10.
+        tags (str, optional): 查询的tags，以逗号分隔（中英均可）. Defaults to None.
+        author (str | int, optional): 筛选指定作者. Defaults to None.
+        more_data (bool, optional): 管理选项。如果为True则返回更多数据. Defaults to False.
+        full_list (bool, optional): 最好别用. Defaults to False.
+        raw_obj (bool, optional): 不进行序列化，直接返回所有orm对象. Defaults to False.
+        only_ids (bool, optional): 只返回图片id. Defaults to False.
+        accessable (Literal[True, False, 'all'], optional): 返回不同accessable状态的图片. Defaults to 'all'.
+
+    Returns:
+        list[models.Image] | list[dict]
     """
 
     with get_db() as db:

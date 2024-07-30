@@ -31,7 +31,8 @@ class Image(Base):
     aspect_ratio = Column(Float(4))  # w / h
     colors = Column(JSON)  # {"color_primary": int, "color_series": list[str]}
 
-    accessable = Column(Boolean, default=False)
+    accessable = Column(Boolean, nullable=True, default=None)
+    avatar_available = Column(Boolean, nullable=True, default=None)
     uploaded = Column(Boolean, default=False)
     downloaded = Column(Boolean, default=False)
     processed = Column(Boolean, default=False)

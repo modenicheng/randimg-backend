@@ -285,7 +285,7 @@ def create_crawler(data: schemas.CreateCrawlerSchema):
     with get_db() as db:
         if data.crawl_type == models.CrawlerType.USER and data.target_user_id == None:
             raise HTTPException(status_code=400,
-                                 detail="target_user_id is required")
+                                detail="target_user_id is required")
         if data.crawl_type == models.CrawlerType.RANKING and (
                 data.target_end_date == None
                 or data.target_start_date == None):
@@ -304,7 +304,7 @@ def get_unprocessed_images_list(token: Annotated[str,
                                                  Depends(oauth2_scheme)],
                                 init: bool = False):
     global process_queue
-    
+
     if auth(token):
         if init:
             images = crud.get_unprocessed_images(ids=True)
@@ -319,7 +319,7 @@ def get_unprocessed_images_list(token: Annotated[str,
                 image = process_queue.pop()
                 with get_db() as db:
                     crud.update_image({**image, 'processing': True}, db)
-                    
+
                 return image
             except Exception as e:
                 ic(e)
@@ -331,9 +331,12 @@ def get_unprocessed_images_list(token: Annotated[str,
 
 
 @app.post('/crawler/image')
-async def error_processing_image(token: Annotated[str, Depends(oauth2_scheme)],
-                           request: Request):
+async def error_processing_image(token: Annotated[str,
+                                                  Depends(oauth2_scheme)],
+                                 request: Request):
     global process_queue
+    if not auth(token):
+        raise HTTPException(status_code=401)
     with get_db() as db:
         try:
             data = await request.json()
@@ -341,6 +344,48 @@ async def error_processing_image(token: Annotated[str, Depends(oauth2_scheme)],
             return crud.update_image(data, db)
         except Exception as e:
             raise HTTPException(status_code=500, detail=e)
+
+
+adjust_accessible_queue = deque()
+
+
+@app.get('/adjust-accessible')
+async def adjust_accessible(token: Annotated[str, Depends(oauth2_scheme)],
+                            init: bool = False):
+    global adjust_accessible_queue
+    if not auth(token):
+        raise HTTPException(401)
+    if init:
+        adjust_accessible_queue = deque()
+        with get_db() as db:
+            for i in db.query(models.Image).filter(
+                    models.Image.downloaded == True,
+                    models.Image.accessable == None).all():
+                adjust_accessible_queue.append({
+                    'id': i.id,
+                    'image_path': i.image_path,
+                })
+        return {'status': 'ok', 'count': adjust_accessible_queue.__len__()}
+    try:
+        image_id = adjust_accessible_queue.pop()
+        return image_id
+    except Exception as e:
+        raise HTTPException(404, detail=str(e))
+
+
+@app.post('/adjust-aaccessible')
+async def error_adjusting_accessible(token: Annotated[str,
+                                                      Depends(oauth2_scheme)],
+                                     request: Request):
+    global adjust_accessible_queue
+    if auth(token) != False:
+        raise HTTPException(401)
+    try:
+        data = await request.json()
+        ic(data)
+        adjust_accessible_queue.appendleft(data['id'])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=e)
 
 
 if __name__ == '__main__':
