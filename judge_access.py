@@ -17,7 +17,7 @@ def func(image_path):
             db.query(models.Image).filter(
                 models.Image.image_path == image_path).update({
                     'accessable':
-                    is_blank_background(configs.IMAGE_DIR + image_path)
+                    not is_blank_background(configs.IMAGE_DIR + image_path)
                 })
             db.commit()
         except cv2.error:
