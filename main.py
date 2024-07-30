@@ -183,21 +183,21 @@ def get_image(image_id: int,
 
 
 @app.get('/')
-def rand_image(format: str = 'json',
+async def rand_image(format: str = 'json',
                ratio_floor: float = 0,
                ratio_ceil: float = 10,
                tags=None):
-    image_list = crud.get_image_list(ratio_ceil=ratio_ceil,
+    image = crud.get_image_list(ratio_ceil=ratio_ceil,
                                      ratio_floor=ratio_floor,
                                      full_list=True,
                                      accessable=True,
                                      tags=tags,
-                                     only_ids=True)
-    if len(image_list) == 0:
+                                     only_ids=True,
+                                     random=True)
+    if image == None:
         raise HTTPException(status_code=404, detail='No image found')
     else:
-        img_id = random.choice(image_list)
-        img = crud.get_image_by_id(img_id)
+        img = crud.get_image_by_id(image.id)
 
     if format == 'json':
         return img

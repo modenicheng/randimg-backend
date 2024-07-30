@@ -1,8 +1,6 @@
-from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, database
-# import models, schemas, database
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import load_only, Session, joinedload
+from sqlalchemy.sql import func
 from sqlalchemy import or_, and_
 from icecream import ic
 from configs import CDN_BASE_URL
@@ -419,8 +417,9 @@ def get_image_list(
     full_list: bool = False,
     raw_obj: bool = False,
     only_ids: bool = False,
-    accessable: Literal[True, False, 'all'] = 'all'
-) -> list[models.Image] | list[dict]:
+    accessable: Literal[True, False, 'all'] = 'all',
+    random: bool = False,
+) -> list[models.Image] | list[dict] | list[int] | models.Image:
     """获取图片列表
 
     Args:
@@ -445,6 +444,29 @@ def get_image_list(
         if full_list:
             offset = 0
             limit = None
+
+        if random:
+            images = db.\
+                query(models.Image).\
+                join(models.Image.author).\
+                join(models.image_tag_association).\
+                join(models.Tag, models.Tag.id == models.image_tag_association.c.tag_id).\
+                filter(
+                    and_(
+                    models.Image.uploaded == True,
+                    and_(models.Image.accessable == accessable) if accessable != 'all' else or_(models.Image.accessable == True, models.Image.accessable == False),
+                    models.Image.aspect_ratio >= ratio_floor,
+                    models.Image.aspect_ratio <= ratio_ceil),
+                    or_(models.Author.id == author if type(author) == int else
+                        models.Author.name.like("%" + author +
+                                                "%")) if author != None else True,
+                    or_(models.Tag.name.in_(tags.split(',')),
+                        models.Tag.translated_name.in_(tags.split(',')))
+                    if tags != None and tags != '' else True,
+                ).\
+                order_by(func.random()).\
+                first()
+            return images
 
         if tags:
             images = db.\
@@ -492,7 +514,7 @@ def get_image_list(
                 limit(limit).\
                 all()
 
-        if raw_obj and not only_ids:
+        if raw_obj:
             return images
         if only_ids:
             return [i.id for i in images]
