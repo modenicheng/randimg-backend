@@ -38,7 +38,7 @@ if __name__ == '__main__':
         exit()
     ic(init_res.json())
     processes = []
-    for i in range(configs.WORKER_NUM):
+    for i in range(configs.WORKER_NUM * 2):
         p = multiprocessing.Process(target=worker_.loop_2)
         p.start()
         processes.append(p)

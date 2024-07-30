@@ -110,8 +110,8 @@ def is_blank_background(file, scale_factor: float = 0.5):
     image = cv2.GaussianBlur(image, (5, 5), 0)
     total_pix = image.shape[0] * image.shape[1]
     white_area_ratio = np.sum(image >= 210) / total_pix
-    black_area_ratio = np.sum(image <= 25) / total_pix
-    if white_area_ratio >= 0.55 or black_area_ratio >= 0.3:
+    black_area_ratio = np.sum(image <= 15) / total_pix
+    if white_area_ratio >= 0.53 or black_area_ratio >= 0.4:
         return True
     else:
         return False
