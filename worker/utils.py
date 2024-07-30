@@ -97,7 +97,7 @@ def get_dominant_colors_v2(file_path: str, scale: float = 0.5, num_colors: int =
     result = result.convert('RGB')
     ic(result)
 
-def is_blank_background(file, scale_factor: float = 0.5):
+def is_blank_background(file, scale_factor: float = 0.3):
     if type(file) == str:
         try:
             image = cv2.imread(file, cv2.IMREAD_GRAYSCALE)
@@ -107,12 +107,13 @@ def is_blank_background(file, scale_factor: float = 0.5):
     else:
         image = cv2.imdecode(file, cv2.IMREAD_GRAYSCALE)
     image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
-    image = cv2.GaussianBlur(image, (5, 5), 0)
+    image = cv2.GaussianBlur(image, (15, 15), 0)
     total_pix = image.shape[0] * image.shape[1]
-    white_area_ratio = np.sum(image >= 215) / total_pix
+    white_area_ratio = np.sum(image >= 205) / total_pix
     black_area_ratio = np.sum(image <= 10) / total_pix
     del image
-    if white_area_ratio >= 0.53 or black_area_ratio >= 0.4:
+    ic(white_area_ratio, black_area_ratio)
+    if white_area_ratio >= 0.47 or black_area_ratio >= 0.4:
         return True
     else:
         return False
