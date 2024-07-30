@@ -22,13 +22,13 @@ def func(image_path):
 
 if __name__ == '__main__':
     freeze_support()
-    e = []
 
     with get_db() as db:
         l = db.query(
             models.Image).filter(models.Image.accessable == None,
                                  models.Image.downloaded == True).all()
         path_list = [i.image_path for i in l]
+        del l
         with Pool(10) as p:
             list(
                 tqdm.tqdm(p.imap(func, path_list),

@@ -111,6 +111,7 @@ def is_blank_background(file, scale_factor: float = 0.5):
     total_pix = image.shape[0] * image.shape[1]
     white_area_ratio = np.sum(image >= 210) / total_pix
     black_area_ratio = np.sum(image <= 15) / total_pix
+    del image
     if white_area_ratio >= 0.53 or black_area_ratio >= 0.4:
         return True
     else:
