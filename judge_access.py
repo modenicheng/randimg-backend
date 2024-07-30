@@ -8,16 +8,23 @@ import queue
 import tqdm
 import configs
 from functools import partial
+import cv2
 
 
 def func(image_path):
     with get_db() as db:
-        db.query(models.Image).filter(
-            models.Image.image_path == image_path).update({
-                'accessable':
-                is_blank_background(configs.IMAGE_DIR + image_path)
-            })
-        db.commit()
+        try:
+            db.query(models.Image).filter(
+                models.Image.image_path == image_path).update({
+                    'accessable':
+                    is_blank_background(configs.IMAGE_DIR + image_path)
+                })
+            db.commit()
+        except cv2.error:
+            db.query(models.Image).filter(
+                models.Image.image_path == image_path).update(
+                    {'accessable': False})
+            db.commit()
 
 
 if __name__ == '__main__':
