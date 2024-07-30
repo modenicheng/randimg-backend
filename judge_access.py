@@ -2,21 +2,22 @@ from db import models
 from db.crud import get_db
 from worker.utils import is_blank_background
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import freeze_support, Process
+from multiprocessing import freeze_support, Process, Pool
 from sqlalchemy.orm import Session
 import queue
 import tqdm
 import configs
+from functools import partial
 
 
-def func(image_path, db: Session):
-    db.query(
-        models.Image).filter(models.Image.image_path == image_path).update({
-            'accessable':
-            is_blank_background(configs.IMAGE_DIR + image_path)
-        })
-    db.commit()
-    # print('done', image_path)
+def func(image_path):
+    with get_db() as db:
+        db.query(models.Image).filter(
+            models.Image.image_path == image_path).update({
+                'accessable':
+                is_blank_background(configs.IMAGE_DIR + image_path)
+            })
+        db.commit()
 
 
 if __name__ == '__main__':
@@ -28,6 +29,9 @@ if __name__ == '__main__':
             models.Image).filter(models.Image.accessable == None,
                                  models.Image.downloaded == True).all()
         path_list = [i.image_path for i in l]
-        print(l.__len__())
-        for path in tqdm.tqdm(path_list):
-            func(path, db)
+        with Pool(10) as p:
+            list(
+                tqdm.tqdm(p.imap(func, path_list),
+                          total=len(path_list),
+                          desc='Processing images'))
+        print('Done.')
