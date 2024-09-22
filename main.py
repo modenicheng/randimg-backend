@@ -33,7 +33,7 @@ from jose.exceptions import JWEInvalidAuth, ExpiredSignatureError
 from passlib.context import CryptContext
 
 from configs import *
-
+import jose
 from fastapi.middleware.cors import CORSMiddleware
 import queue
 from collections import deque
@@ -136,6 +136,8 @@ def auth(token: str = ''):
         return True
     except ExpiredSignatureError as e:
         raise HTTPException(status_code=401, detail='token expired')
+    except jose.exceptions.JWTError as e:
+        raise credentials_exception
 
 
 @app.post("/token")
@@ -159,6 +161,7 @@ def get_image(image_id: int,
               format: str = 'json',
               local: bool = False,
               authorization: Annotated[str, Header()] = None):
+    is_admin = False
     if authorization:
         token = authorization.split(' ')[1]
         if auth(token):
@@ -183,7 +186,8 @@ def get_image(image_id: int,
 
 
 @app.get('/')
-async def rand_image(format: str = 'json',
+def rand_image(format: str = 'json',
+               local: bool = False,
                ratio_floor: float = 0,
                ratio_ceil: float = 10,
                tags=None):
@@ -202,6 +206,8 @@ async def rand_image(format: str = 'json',
     if format == 'json':
         return img
     elif format == 'image':
+        if local:
+            return FileResponse('./images/' + img.get('image_path'))
         return RedirectResponse(url=img['src'], status_code=307)
 
 
@@ -386,6 +392,9 @@ async def error_adjusting_accessible(token: Annotated[str,
         adjust_accessible_queue.appendleft(data['id'])
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)
+@app.get('/statistic')
+def get_statistic():
+    return crud.get_statistic()
 
 
 if __name__ == '__main__':

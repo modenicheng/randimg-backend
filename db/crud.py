@@ -483,9 +483,10 @@ def get_image_list(
                     or_(models.Author.id == author if type(author) == int else
                         models.Author.name.like("%" + author +
                                                 "%")) if author != None else True,
-                    or_(models.Tag.name.in_(tags.split(',')),
-                        models.Tag.translated_name.in_(tags.split(',')))
-                    if tags != None and tags != '' else True,
+                    # or_(models.Tag.name.in_(tags.split(',')),
+                    #     models.Tag.translated_name.in_(tags.split(',')))
+                    or_(or_(models.Tag.name.like("%" + tag + "%") for tag in tags.split(',')),
+                        or_(models.Tag.translated_name.like("%" + tag + "%") for tag in tags.split(',')))
                 ).\
                 order_by(models.Image.id.desc() if desc else models.Image.id.asc()).\
                 offset(offset).\
@@ -505,9 +506,6 @@ def get_image_list(
                     or_(models.Author.id == author if type(author) == int else
                         models.Author.name.like("%" + author +
                                                 "%")) if author != None else True,
-                    or_(models.Tag.name.in_(tags.split(',')),
-                        models.Tag.translated_name.in_(tags.split(',')))
-                    if tags != None and tags != '' else True,
                 ).\
                 order_by(models.Image.id.desc() if desc else models.Image.id.asc()).\
                 offset(offset).\
@@ -661,3 +659,16 @@ def get_not_uploaded_illusts():
             'url': i.source_image_url,
             'image_path': i.image_path
         } for i in l]
+
+
+def get_statistic():
+    with get_db() as db:
+        return {
+            'illust_count':
+            db.query(
+                models.Image).filter(models.Image.accessable == True).count(),
+            'tag_count':
+            db.query(models.Tag).count(),
+            'author_count':
+            db.query(models.Author).count(),
+        }
