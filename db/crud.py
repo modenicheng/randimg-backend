@@ -485,8 +485,8 @@ def get_image_list(
                                                 "%")) if author != None else True,
                     # or_(models.Tag.name.in_(tags.split(',')),
                     #     models.Tag.translated_name.in_(tags.split(',')))
-                    or_(or_(models.Tag.name.like("%" + tag + "%") for tag in tags.split(',')),
-                        or_(models.Tag.translated_name.like("%" + tag + "%") for tag in tags.split(',')))
+                    or_(or_(*[models.Tag.name.like("%" + tag + "%") for tag in tags.split(',')]),
+                        or_(*[models.Tag.translated_name.like("%" + tag + "%") for tag in tags.split(',')]))
                 ).\
                 order_by(models.Image.id.desc() if desc else models.Image.id.asc()).\
                 offset(offset).\
