@@ -1,18 +1,18 @@
-"""Clean inaccessible or unprocessed image files from DogeCloud OSS.
-
+"""Clean inaccessible or colorless image files from DogeCloud OSS.
 
 This script only deletes remote DogeCloud objects. It does not remove local image
 files and does not delete image rows from the database.
 """
 
 import argparse
-import json
+from contextlib import contextmanager
 from dataclasses import dataclass
+import json
 from typing import Any, Iterable
 
-from contextlib import contextmanager
+from sqlalchemy import Boolean, Column, Integer, JSON, MetaData, String, Table, select
 
-from db import database, models
+from db import database
 
 
 @contextmanager
@@ -22,6 +22,17 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+IMAGES_TABLE = Table(
+    "images",
+    MetaData(),
+    Column("id", Integer),
+    Column("image_path", String),
+    Column("colors", JSON),
+    Column("accessable", Boolean),
+    Column("uploaded", Boolean),
+)
 
 
 @dataclass
@@ -64,34 +75,59 @@ def has_color_info(colors: Any) -> bool:
 
 
 def get_cleanup_candidates(batch_size: int) -> Iterable[CleanupCandidate]:
-    """Yield images that are inaccessible or missing color information."""
-    with get_db() as db:
-        query = (
-            db.query(models.Image)
-            .filter(models.Image.image_path.isnot(None))
-            .yield_per(batch_size)
-        )
+    """Yield images that are inaccessible or missing color information.
 
-        for image in query:
-            reasons = []
-            if image.accessable is False:
-                reasons.append("accessable=false")
-            if not has_color_info(image.colors):
-                reasons.append("missing-colors")
-            if not reasons:
-                continue
-            yield CleanupCandidate(
-                id=image.id,
-                image_path=image.image_path,
-                reason=",".join(reasons),
-            )
+    Fetch rows in id-ordered pages with SQLAlchemy Core table statements.
+    The Image ORM model eagerly loads the tags collection, so this script avoids
+    importing or querying ORM models entirely.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than 0")
+
+    last_id = 0
+    image_table = IMAGES_TABLE
+    with get_db() as db:
+        while True:
+            rows = db.execute(
+                select(
+                    image_table.c.id,
+                    image_table.c.image_path,
+                    image_table.c.colors,
+                    image_table.c.accessable,
+                )
+                .where(
+                    image_table.c.id > last_id,
+                    image_table.c.image_path.is_not(None),
+                )
+                .order_by(image_table.c.id.asc())
+                .limit(batch_size)
+            ).all()
+            if not rows:
+                break
+
+            for image_id, image_path, colors, accessable in rows:
+                last_id = image_id
+                reasons = []
+                if accessable is False:
+                    reasons.append("accessable=false")
+                if not has_color_info(colors):
+                    reasons.append("missing-colors")
+                if not reasons:
+                    continue
+                yield CleanupCandidate(
+                    id=image_id,
+                    image_path=image_path,
+                    reason=",".join(reasons),
+                )
 
 
 def mark_not_uploaded(image_id: int) -> None:
     """Mark an image as not uploaded after its remote object is removed."""
     with get_db() as db:
-        db.query(models.Image).filter(models.Image.id == image_id).update(
-            {"uploaded": False}, synchronize_session=False
+        db.execute(
+            IMAGES_TABLE.update()
+            .where(IMAGES_TABLE.c.id == image_id)
+            .values(uploaded=False)
         )
         db.commit()
 
@@ -112,7 +148,7 @@ def parse_args() -> argparse.Namespace:
         "--batch-size",
         type=int,
         default=500,
-        help="Number of image rows to stream from the database at a time.",
+        help="Number of image rows to fetch from the database per Core batch.",
     )
     parser.add_argument(
         "--limit",
