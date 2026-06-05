@@ -1,4 +1,5 @@
-"""Clean inaccessible or colorless image files from DogeCloud OSS.
+"""Clean inaccessible or unprocessed image files from DogeCloud OSS.
+
 
 This script only deletes remote DogeCloud objects. It does not remove local image
 files and does not delete image rows from the database.
@@ -63,35 +64,25 @@ def has_color_info(colors: Any) -> bool:
 
 
 def get_cleanup_candidates(batch_size: int) -> Iterable[CleanupCandidate]:
-    """Yield images that are inaccessible or missing color information.
-
-    Select explicit columns instead of full Image entities. Image.tags is configured
-    for eager loading in the model, and eager-loaded collections cannot be used
-    with yield_per(). Column-only rows avoid that loader entirely.
-    """
+    """Yield images that are inaccessible or missing color information."""
     with get_db() as db:
         query = (
-            db.query(
-                models.Image.id,
-                models.Image.image_path,
-                models.Image.colors,
-                models.Image.accessable,
-            )
+            db.query(models.Image)
             .filter(models.Image.image_path.isnot(None))
             .yield_per(batch_size)
         )
 
-        for image_id, image_path, colors, accessable in query:
+        for image in query:
             reasons = []
-            if accessable is False:
+            if image.accessable is False:
                 reasons.append("accessable=false")
-            if not has_color_info(colors):
+            if not has_color_info(image.colors):
                 reasons.append("missing-colors")
             if not reasons:
                 continue
             yield CleanupCandidate(
-                id=image_id,
-                image_path=image_path,
+                id=image.id,
+                image_path=image.image_path,
                 reason=",".join(reasons),
             )
 
