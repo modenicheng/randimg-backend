@@ -122,6 +122,13 @@ class OSS:
         self.s3.upload_fileobj(image_file, bucket, key)
         return image_uri
 
+    def delete_file(self, image_uri: str):
+        """删除 OSS 中的指定文件，不影响本地文件。"""
+        get_tmp_token()
+        bucket = self.bucket
+        key = image_uri
+        return self.s3.delete_object(Bucket=bucket, Key=key)
+
     def image_blob_to_file_obj(self, image_blob: Image):
         img_byte_arr = BytesIO()
 
