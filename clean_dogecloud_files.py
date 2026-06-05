@@ -1,5 +1,6 @@
 """Clean inaccessible or unprocessed image files from DogeCloud OSS.
 
+
 This script only deletes remote DogeCloud objects. It does not remove local image
 files and does not delete image rows from the database.
 """
